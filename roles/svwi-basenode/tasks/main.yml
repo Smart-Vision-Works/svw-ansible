@@ -1,225 +1,123 @@
+- name: Install base packages
+  ansible.builtin.package:
+    name:
+      - whois
+      - jq
+      - btop
+      - dirmngr
+      - unzip
+      - neovim
+      - ncdu
+      - debian-goodies
+      - git
+      - dnsutils
+      - apt-transport-https
+      - curl
+      - software-properties-common
+      - ubuntu-advantage-tools
+    state: present
 
-# Class for base configuration that should be present on every svw node
-#class svwi_basenode {
-#  include svwi_users::admins
-#  include apt
-#  include ca_cert
-#
-#  $svwipackages = ['whois', 'jq', 'htop', 'dirmngr', 'unzip', 'neovim', 'ncdu', 'debian-goodies', 'git', 'dnsutils',
-#    'apt-transport-https', 'curl', 'software-properties-common']
-#  $consulroot = lookup('consul_mtls_root', undef, undef, '')
-#  $consulint = lookup('consul_mtls_int', undef, undef, '')
-#  $consulconroot = lookup('connect-root', undef, undef, '')
-#  $consulconint = lookup('consul_connect_int', undef, undef, '')
-#  $vaultroot = lookup('vault_root', undef, undef, '')
-#  $vaultint = lookup('vault_int', undef, undef, '')
-#  $hostip = $facts['networking']['ip']
-#  $sentineltoken = Sensitive(lookup('sentinel-detect-only-token', undef, undef, ''))
-#  $lskey = Sensitive(lookup('lskey', undef, undef, ''))
-#  $prokey = Sensitive(lookup('ubuntu-prokey', undef, undef, ''))
-#  $letsencrypt_cas = [ 'e5', 'e6', 'isrgrootx1',
-#    'isrg-root-x2-cross-signed', 'isrg-root-x2', 'r10', 'r11']
-#
-#
-#  file { "/var/lib/puppet-exec":
-#    ensure => directory,
-#    owner => 'root',
-#    group => 'root'
-#  }
-#
-#  package { $svwipackages:
-#    ensure => 'installed'
-#  }
-#
-#  alternatives { 'editor':
-#    path => '/usr/bin/nvim',
-#    require => Package[$svwipackages],
-#  }
-#
-#  package { 'ubuntu-advantage-tools':
-#    ensure => 'latest'
-#  }
-#
-#  archive { '/tmp/DATADOG_APT_KEY_CURRENT.public':
-#    source          => 'https://keys.datadoghq.com/DATADOG_APT_KEY_CURRENT.public',
-#                    extract         => true,
-#                      extract_path    => '/etc/apt/keyrings/',
-#                      extract_command => 'gpg --dearmor -o /etc/apt/keyrings/vector.gpg < %s',
-#                      creates         => '/etc/apt/keyrings/vector.gpg',
-#  }
-#
-#  archive { '/tmp/DATADOG_APT_KEY_C0962C7D.public':
-#    source          => 'https://keys.datadoghq.com/DATADOG_APT_KEY_C0962C7D.public',
-#                    extract         => true,
-#                    extract_path    => '/etc/apt/keyrings/',
-#                    extract_command => 'cat %s | tee DATADOG_APT_KEY_C0962C7D.public | gpg --import --batch --no-default-keyring --keyring /etc/apt/keyrings/vector.gpg',
-#                    creates => '/etc/apt/keyrings/DATADOG_APT_KEY_C0962C7D.public',
-#                    subscribe => Archive['/tmp/DATADOG_APT_KEY_CURRENT.public'],
-#  }
-#
-#  archive { '/tmp/DATADOG_APT_KEY_F14F620E.public':
-#    source          => 'https://keys.datadoghq.com/DATADOG_APT_KEY_F14F620E.public',
-#                    extract         => true,
-#                    extract_path    => '/etc/apt/keyrings/',
-#                    extract_command => 'cat %s | tee DATADOG_APT_KEY_F14F620E.public | gpg --import --batch --no-default-keyring --keyring /etc/apt/keyrings/vector.gpg',
-#                    creates => '/etc/apt/keyrings/DATADOG_APT_KEY_F14F620E.public',
-#                    subscribe => Archive['/tmp/DATADOG_APT_KEY_CURRENT.public'],
-#  }
-#
-#  file { '/etc/apt/sources.list.d/vector.list':
-#    ensure => present,
-#    source => 'puppet:///modules/svwi_basenode/vector.list',
-#    owner => root,
-#    group => root,
-#    mode => '0644',
-#  }
-#
-#  #exec { 'make-vector-apt-repo':
-#  #  command => '/bin/bash -c "$(curl -L https://setup.vector.dev)"',
-#  #  creates => '/etc/apt/sources.list.d/vector.list',
-#  #}
-#
-#  package { 'vector':
-#    ensure  => present,
-#
-#    #require => [Exec['make-vector-apt-repo'],Archive['/tmp/DATADOG_APT_KEY_CURRENT.public'], Archive['/tmp/DATADOG_APT_KEY_C0962C7D.public'], Archive['/tmp/DATADOG_APT_KEY_F14F620E.public']],
-#    require => [File['/etc/apt/sources.list.d/vector.list'],Archive['/tmp/DATADOG_APT_KEY_CURRENT.public'], Archive['/tmp/DATADOG_APT_KEY_C0962C7D.public'], Archive['/tmp/DATADOG_APT_KEY_F14F620E.public']],
-#  }
-#
-#  systemd::dropin_file { 'vector-override':
-#    ensure        => present,
-#    filename      => 'override.conf',
-#    unit          => 'vector.service',
-#    source        => 'puppet:///modules/svwi_basenode/vector-service-override.conf',
-#    daemon_reload => true
-#  }
-#
-#  archive { '/tmp/svw.gpg':
-#      source          => 'https://repo.smartvisionworks.com/svw.asc',
-#      extract         => true,
-#      extract_path    => '/usr/share/keyrings/',
-#      extract_command => 'apt-key --keyring /usr/share/keyrings/svw.gpg add - < %s',
-#      creates         => '/usr/share/keyrings/svw.gpg',
-#    }
-#
-#  if $facts['os']['distro']['codename'] != 'mantic' {
-#    # apt::ppa { 'ppa:landscape/self-hosted-23.03':
-#    #   release => 'noble'
-#    # }
-#
-#    package { 'landscape-client':
-#      ensure  => 'latest',
-#      # require => Apt::Ppa['ppa:landscape/self-hosted-23.03']
-#    }
-#
-#    file { '/etc/landscape/client.conf':
-#      ensure  => present,
-#      content => epp('svwi_basenode/ls-client.conf.epp'),
-#      owner   => 'landscape',
-#      mode    => '0600',
-#      require => Package['landscape-client'],
-#      notify  => Service['landscape-client']
-#    }
-#
-#    file {
-#      '/etc/default/landscape-client':
-#        ensure  => present,
-#        source  => 'puppet:///modules/svwi_basenode/landscape-client',
-#        require => Package['landscape-client'],
-#        notify  => Service['landscape-client']
-#    }
-#  }
-#
-#  service { 'landscape-client':
-#    ensure => running,
-#    enable => true
-#  }
-#
-#  if $facts['os']['distro']['codename'] == 'lunar' or $facts['os']['distro']['codename'] == 'mantic'  or $facts['os']['distro']['codename'] == 'noble' {
-#    apt::source { 'svw':
-#      location     => 'https://repo.smartvisionworks.com/jammy',
-#      repos        => 'main',
-#      keyring      => '/usr/share/keyrings/svw.gpg',
-#      architecture => $facts['os']['architecture'],
-#      release      => 'jammy',
-#      require      => Archive['/tmp/svw.gpg']
-#    }
-#  }
-#  else {
-#    apt::source { 'svw':
-#      location     => "https://repo.smartvisionworks.com/${facts['os']['distro']['codename']}",
-#      repos        => 'main',
-#      keyring      => '/usr/share/keyrings/svw.gpg',
-#      architecture => $facts['os']['architecture'],
-#      release      => $facts['os']['distro']['codename'],
-#      require      => Archive['/tmp/svw.gpg']
-#    }
-#  }
-#
-#  package { 'sentinelagent':
-#    ensure  => present,
-#    require => Apt::Source['svw']
-#  }
-#
-#  exec { 'add-key-sentinelagent':
-#    command     => "/opt/sentinelone/bin/sentinelctl management token set ${sentineltoken.unwrap} && /opt/sentinelone/bin/sentinelctl control start",
-#    refreshonly => true,
-#    subscribe   => Package['sentinelagent']
-#  }
-#
-#  group { 'hashicorp':
-#    ensure => present
-#  }
-#
-#  $letsencrypt_cas.each |String $cert| {
-#    file { "/etc/ssl/certs/letsencrypt-${cert}.crt":
-#      ensure => present,
-#             mode   => '0644',
-#             source => "puppet:///modules/svwi_basenode/letsencrypt/${cert}.crt"
-#    }
-#    ca_cert::ca { "lets-encrypt-${cert}":
-#      ensure => 'trusted',
-#             source => "puppet:///modules/svwi_basenode/letsencrypt/${cert}.crt"
-#    }
-#  }
-#
-#  ca_cert::ca { 'consul-cert':
-#    ensure  => 'trusted',
-#    ca_text => $consulroot
-#  }
-#
-#  ca_cert::ca { 'consul-con-cert':
-#    ensure  => 'trusted',
-#    ca_text => $consulconroot
-#  }
-#
-#  ca_cert::ca { 'consul-int-cert':
-#    ensure  => 'trusted',
-#    ca_text => $consulint
-#  }
-#
-#  ca_cert::ca { 'vault-root':
-#    ensure  => 'trusted',
-#    ca_text => $vaultroot
-#  }
-#
-#  ca_cert::ca { 'vault-int':
-#    ensure  => 'trusted',
-#    ca_text => $vaultint
-#  }
-#
-#  cron { 'install-security-updates':
-#    ensure  => absent,
-#  }
-#
-#  exec { 'pro-attach':
-#    command => "/usr/bin/pro attach ${prokey.unwrap}",
-#    user    => 'root',
-#    onlyif  => '/usr/bin/pro status | grep -q \'This machine is not attached\''
-#  }
-#
-#}
-# The above is puppet code we need to translate to Ansible. Here we go:
----
+  - name: Set default editor to Neovim
+    community.general.alternatives:
+       name: editor
+       path: /usr/bin/nvim
 
-- name: 
+  - name: Get SVW package repo key
+    ansible.builtin.get_url:
+      url: 'https://repo.smartvisionworks.com/svw.asc'
+      dest: '/usr/share/keyrings/svw.gpg'
+      mode: '0644'
+      force: yes
+
+
+  - name: Install SVW package repo
+    ansible.builtin.apt_repository:
+      repo: 'deb [arch=amd64 signed-by=/usr/share/keyrings/svw.gpg] https://repo.smartvisionworks.com/jammy main'
+      state: present
+      filename: svw
+      update_cache: yes
+
+  - name: Install Landscape client
+    ansible.builtin.package:
+      name: landscape-client
+      state: latest
+
+  - name: Configure Landscape client
+    ansible.builtin.template:
+      src: 'ls-client.conf.j2'
+      dest: '/etc/landscape/client.conf'
+      owner: 'landscape'
+      mode: '0600'
+    notify: Restart Landscape client
+
+    - name: Add landcape-client configuration file
+      ansible.builtin.copy:
+        dest: '/etc/default/landscape-client'
+        src: 'landscape-client'
+        owner: 'root'
+        group: 'root'
+        mode: '0644'
+
+  - name: Get Landscape service running
+    ansible.builtin.systemd:
+      name: landscape-client
+      state: started
+      enabled: true
+
+  - name: Install sentinel agent
+    ansible.builtin.package:
+      name: sentinelagent
+      state: present
+      update_cache: yes
+      force: yes
+    register: sentinelagent_result
+
+
+  - name: Add SentinelOne management token
+    ansible.builtin.command: >
+      /opt/sentinelone/bin/sentinelctl management token set {{ sentinel_token }}
+    args:
+      warn: false
+    register: sentinel_token_result
+    when:
+      - sentinel_token is defined
+      - sentinelagent_result.changed
+
+  - name: Add LetsEncrypt CAs
+    ansible.builtin.copy:
+      src: "letsencrypt/{{ item }}.crt"
+      dest: "/etc/ssl/certs/letsencrypt-{{ item }}.crt"
+      owner: root
+      group: root
+      mode: '0644'
+    loop:
+      - e5
+      - e6
+      - isrgrootx1
+      - isrg-root-x2-cross-signed
+      - isrg-root-x2
+      - r10
+      - r11
+    notify: Update CA certificates
+
+- name: Pro Attach
+  ansible.builtin.command: >
+    /usr/bin/pro attach {{ ubuntu_pro_key }}
+  args:
+    warn: false
+  when: ubuntu_pro_key is defined
+  register: pro_attach_result
+  changed_when: pro_attach_result.rc == 0
+
+handlers:
+  - name: Restart Landscape client
+    ansible.builtin.systemd:
+      name: landscape-client
+      state: restarted
+
+  - name: Update CA certificates
+    ansible.builtin.command: >
+      update-ca-certificates --fresh
+    args:
+      warn: false
+    when: sentinelagent_result.changed or pro_attach_result.changed

@@ -1,0 +1,9 @@
+[client]
+log_level = info
+url = https://landscape.canonical.com/message-system
+ping_url = http://landscape.canonical.com/ping
+data_path = /var/lib/landscape/client
+registration_key = {{ lskey }}
+computer_title = {{ ansible_fqdn }}
+account_name = smart-vision-works
+include_manager_plugins = ScriptExecution
