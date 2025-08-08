@@ -1,0 +1,13 @@
+
+# Editor save files
+*.sw[a-z]
+*~
+.#*
+.*#
+\#*
+
+# Ansible files
+/.vault.pass
+/.retry
+*.retry
+/.env

@@ -1,0 +1,25 @@
+#[office-servers]
+#office-blade ansible_host=10.8.7.248
+
+[datacenter-servers]
+dcblade1 ansible_host=dcblade1.svwi.us
+
+dcblade2 ansible_host=dcblade2.svwi.us
+
+dcblade3 ansible_host=dcblade3.svwi.us
+
+[dns-servers]
+ns1 ansible_host=ns1.svwi.us
+#ns2 ansible_host=ns2.svwi.us
+
+[data-servers]
+#eureka ansible_host=eurekaa.svwi.us
+#singularity ansible_host=singularity.svwi.us
+
+[databases]
+#landscape ansible_host=10.10.5.115
+
+[vault-servers]
+vault1 ansible_host=vault1.svwi.us
+vault2 ansible_host=vault2.svwi.us
+vault3 ansible_host=vault3.svwi.us
