@@ -1,1 +1,5 @@
-- import_playbook: ping.yml
+- name: Ensure the whole site is in compliance with IaC
+  hosts: all
+  tasks:
+    - ansible.builtin.include_role:
+        name: svwi-users
