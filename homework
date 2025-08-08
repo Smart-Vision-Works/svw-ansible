@@ -1,0 +1,75 @@
+Here are a list of nodes described by the `manifests/nodes.pp` puppet file and
+what puppet modules they use, if we still need the IP in those modules. See,
+some of those nodes will just get deleted.
+
+puppetmaster: delete
+opsmetrics: already gone
+vault: in progress
+  - svwi_vault
+  - svwi_basenode
+
+vault_loadbalancer
+  - vault_loadbalancer (interesting)
+
+consul: delete
+nomad: delete
+
+ns2:
+  - svwi_basenode
+  - svwi_dns class with:
+    buddyip: 10.10.1.1
+    sqlid: 102
+
+ns1:
+  - svwi_basenode
+  - class svwi_dns with:
+    buddyip: 10.10.1.2
+    sqlid: 101
+
+uptime: already gone
+nomadrunner: delete/translate to services vm
+
+NEW services vm: TBD
+
+dcblades: are pets, don't touch them
+  - svwi_basenode
+  - svwi_dcblade (to be translated into proxmox calls in different playbooks)
+  - svwi_users 
+proxmox: are pets, don't touch them
+
+cloudrunner: delete
+viki: gone
+eureka:
+  - svwi_datarig (one-time/top-up kinda deal)
+singularity:
+  - svwi_datarig (one-time/top-up kinda deal)
+
+cvat: never heard of him
+svw-ls-*:
+  - svwi_labelers
+
+office-blade:
+  - svwi_basenode
+  - svwi_office_blade
+
+registry: delete/gone
+
+cvatlocal: delete/gone
+
+Total list of things to migrate:
+  - NEW svw_services
+  - NEW vms (to spin up vms, ensure they exist)
+  - MAYBE landscape
+  - ca_cert
+  - svwi_basenode
+  - svwi_certs
+  - svwi_datarig (one-time/top-up kinda deal)
+  - svwi_dcblade (if applicable still after vms is created)
+  - svwi_dns class
+  - svwi_labelers
+  - svwi_office_blade
+  - svwi_users
+  - svwi_vault
+  - vault_loadbalancer (interesting)
+
+A total of 7 VMs including landscape across three hypervisors.
