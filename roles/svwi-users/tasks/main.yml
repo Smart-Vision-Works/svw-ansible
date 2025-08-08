@@ -1,0 +1,5 @@
+- name: Run the "admins" task
+  import_tasks: admins.yml
+
+- name: Run the "service" task
+  import_tasks: service.yml

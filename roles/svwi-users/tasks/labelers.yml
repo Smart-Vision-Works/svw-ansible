@@ -1,0 +1,68 @@
+- name: Create labelers group
+  ansible.builtin.group:
+    name: labelers
+    state: present
+    gid: 1293804218
+    system: true
+
+- name: Create labelers users
+  include_task:
+    file: svw-users.yml
+    name: Create labelers users
+  vars:
+    users:
+      - name: 'rovard'
+        password_hash: '$y$j9T$5xp6ZmIplsRNNOapbiH880$qf77jIULqbkOeoXV8wnlmOYMwEpVVGQsyKapgmllxRA'
+        groups:
+          - 'docker'
+          - 'labelers'
+      - name: 'mweaver'
+        password_hash: '$y$j9T$esan1ZZvm5eBACH2E3XJ7.$I4gHCno/C8m7X/9vKJdbETvy9XFDArGDEieKl1E3dk3'
+        groups:
+          - 'docker'
+          - 'labelers'
+      - name: 'tmoon'
+        password_hash: '$y$j9T$hDsO1cLXhki8d3XHRWlvO1$Wwt3uuPpgNPF8rTyAgYjLTQr4rJ94iQdyJhcPxqD5y.'
+        groups:
+          - 'docker'
+          - 'labelers'
+      - name: 'jrice'
+        password_hash: '$y$j9T$VwKPtcm1e2478nMRhlEMy1$0EwNy5oqiIZ3yiLzVxkFcSmEuwx9ZBxVY.Bl6dcf1VD'
+        groups:
+          - 'docker'
+          - 'labelers'
+      - name: 'clee'
+        password_hash: '$y$j9T$Gg7CPC3zeNVsXqAVZP7Xi/$K3IA9mHf6DkwB3IJ5tHyt.3E7hDUX3zlns6QbieBY77'
+        groups:
+          - 'docker'
+          - 'labelers'
+      - name: 'eholiday'
+        password_hash: '$y$j9T$NjqjAyLENKmXoQzvxmAo6.$U2GAQE5kKIbPwZcRHmVvjgxx2AMPDv.1qyw7fvuVmcA'
+        groups:
+          - 'docker'
+          - 'labelers'
+      - name: 'cgarrett'
+        password_hash: '$y$j9T$Om.Rhvq7Og.BZaAXZ3Q5Z.$y9j3Zo1fYfPFq1C42FYXIhVJFrMsGdUZfTL17/Hxm43'
+        groups:
+          - 'docker'
+          - 'labelers'
+      - name: 'tallen'
+        password_hash: '$y$j9T$mLl6KwlI7G4/714qxXII7.$g7HE1PD63pyB.HOQ8nzl7Pl6/w7s5.W1Ha2j0oLEh.C'
+        groups:
+          - 'docker'
+          - 'labelers'
+      - name: 'isaacholiday'
+        password_hash: '$y$j9T$nU.69iKPEtXoS5p2xWE8B.$u8Sn5whH9yYYycIPXfnXElHWBNw41x2tGnNDm7qKh0A'
+        groups:
+          - 'docker'
+          - 'labelers'
+      - name: 'rzickella'
+        password_hash: '$y$j9T$PN8SLJwHvx1BeL3EI1x6o/$EDbI/U8za7lwaYyOS37RATimmflp9fSV.4He3ielQN3'
+        groups:
+          - 'docker'
+          - 'labelers'
+      - name: 'apowell'
+        password_hash: '$y$j9T$bLOZB70ZbUwjk21wUD3TV1$58erIEgMEl41KiOZOFFAGHVAUTk8WN7ouEMweSYkGR6'
+        groups:
+          - 'docker'
+          - 'labelers'

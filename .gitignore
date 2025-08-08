@@ -11,3 +11,7 @@
 /.retry
 *.retry
 /.env
+/tmp
+
+# Test files
+/.vagrant

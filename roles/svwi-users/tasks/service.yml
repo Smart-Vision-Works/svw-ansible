@@ -1,0 +1,19 @@
+- name: Add vuls-user
+  include_tasks:
+    file: svw-user.yml
+  vars:
+    users:
+      - name: vuls-user
+        ssh_keys: |
+          ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLWI73H25n8HFDymnX7zaH0s/lsePndkPZmdueiKdJHzC1Knq5IXX8rD7bmLaCE8ziLhGqeI7xlIir13CaZhynA= vuls-user@smartvisionworks.com
+
+- name: Ensure /etc/sudoers.d/service-sudoer is present
+  ansible.builtin.copy:
+    src: service-sudoer
+    dest: /etc/sudoers.d/service-sudoer
+    mode: '0400'
+    owner: root
+    group: root
+  become: true
+  tags:
+    - sudoers

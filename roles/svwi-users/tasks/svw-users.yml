@@ -1,0 +1,66 @@
+- name: Ensure the `admins` group exists
+  ansible.builtin.group:
+    name: admins
+    state: present
+
+- name: Put the `admin-sudo` file in place
+  ansible.builtin.copy:
+    src: admin-sudo
+    dest: /etc/sudoers.d/admin-sudo
+    owner: root
+    group: root
+    mode: '0440'
+  register:
+    sudoers_file
+  notify:
+    - Reload sudoers
+
+- name: Reload sudoers
+  ansible.builtin.command: /usr/sbin/visudo -c
+  register: sudoers_check
+  changed_when: sudoers_check.rc != 0
+  when: sudoers_file.changed
+
+- name: Add user accounts based on passed variables
+  block:
+
+
+    - ansible.builtin.group:
+      name: "{{ item.name }}"
+      state: present
+      when: item.ensure != 'absent'
+
+    - ansible.builtin.user:
+      name: "{{ item.name }}"
+      group: "{{ item.name }}"
+      groups: "{{ item.groups | default('') }}"
+      shell: /bin/bash
+      state: present
+      create_home: true
+      local: true
+      password: "{{ item.password_hash | default('') }}"
+      when:
+        - item.ensure != 'absent'
+
+    - ansible.posix.authorized_key:
+      user: "{{ item.name }}"
+      key: "{{ item.ssh_keys }}"
+      state: present
+      when:
+        - item.ensure != 'absent'
+        - item.ssh_keys is defined
+
+    - ansible.builtin.user:
+      name: "{{ item.name }}"
+      state: absent
+      remove: true
+      force: true
+      when: item.ensure == 'absent'
+
+
+    - ansible.builtin.group:
+      name: "{{ item.name }}"
+      state: absent
+      when: item.ensure == 'absent'
+
+  loop: "{{ users }}"

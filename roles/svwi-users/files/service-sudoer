@@ -1,0 +1,1 @@
+vuls-user ALL=(ALL) NOPASSWD:SETENV: /usr/bin/apt-get update, /usr/bin/stat *, /usr/sbin/checkrestart, /bin/ls -l /proc/*/exe, /bin/cat /proc/*/maps, /usr/bin/lsof -i -P -n
