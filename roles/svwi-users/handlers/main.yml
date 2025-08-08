@@ -1,0 +1,4 @@
+---
+- name: Reload sudoers
+  ansible.builtin.command: /usr/sbin/visudo -c
+  become: true

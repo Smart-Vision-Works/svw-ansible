@@ -1,7 +1,0 @@
-#gather_facts: false
-- hosts: all
-  tasks:
-    - name: Ping
-      ansible.builtin.ping:
-      register: ping_result
-

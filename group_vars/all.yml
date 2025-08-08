@@ -1,2 +1,2 @@
-ansible_user: {{ USER }}
+ansible_user: "{{ lookup('env', 'USER') }}"
 ansible_become: true

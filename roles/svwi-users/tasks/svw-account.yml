@@ -1,0 +1,45 @@
+- name: Make the {{ item.name }} group
+  ansible.builtin.group:
+    name: "{{ item.name }}"
+    state: present
+  when: (item.ensure is not defined) or (item.ensure != 'absent')
+
+- name: Make the {{ item.name }} user
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    group: "{{ item.name }}"
+    groups: "{{ item.groups | default('') }}"
+    shell: /bin/bash
+    state: present
+    create_home: true
+    #local: true
+    password: "{{ item.password_hash | default('') }}"
+  when: item.ensure is not defined or item.ensure != 'absent'
+
+- name: Add SSH keys to authorized_keys for {{ item.name }}
+  ansible.posix.authorized_key:
+    user: "{{ item.name }}"
+    key: "{{ item.ssh_keys }}"
+    state: present
+  when:
+    - item.ssh_keys is defined
+    - item.ensure is not defined or item.ensure != 'absent'
+
+- name: Delete {{ item.name }} if desired
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    state: absent
+    remove: true
+    force: true
+  when:
+    - item.ensure is defined
+    - item.ensure == 'absent'
+
+
+- name: Delete group for {{ item.name }} if desired
+  ansible.builtin.group:
+    name: "{{ item.name }}"
+    state: absent
+  when:
+    - item.ensure is defined
+    - item.ensure == 'absent'

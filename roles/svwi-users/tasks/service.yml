@@ -1,6 +1,6 @@
 - name: Add vuls-user
   include_tasks:
-    file: svw-user.yml
+    file: svw-users.yml
   vars:
     users:
       - name: vuls-user
@@ -11,7 +11,7 @@
   ansible.builtin.copy:
     src: service-sudoer
     dest: /etc/sudoers.d/service-sudoer
-    mode: '0400'
+    mode: '0440'
     owner: root
     group: root
   become: true

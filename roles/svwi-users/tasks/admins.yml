@@ -1,5 +1,5 @@
 - name: Add admins
-  include_task: svw-users.yml
+  include_tasks: svw-users.yml
   vars:
     users:
       - name: 'dhaskin'
