@@ -1,0 +1,3 @@
+* When creating new roles, always do so in `kebab-case`.
+* There is a file, `homework`, which may have direction concerning what
+  currently needs done.

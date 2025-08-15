@@ -1,0 +1,4 @@
+# The ansible galaxy requirements of this repository
+---
+collections:
+  - name: community.general

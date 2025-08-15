@@ -1,3 +1,4 @@
+
 - name: Install base packages
   ansible.builtin.package:
     name:
@@ -17,107 +18,113 @@
       - ubuntu-advantage-tools
     state: present
 
-  - name: Set default editor to Neovim
-    community.general.alternatives:
-       name: editor
-       path: /usr/bin/nvim
+- name: Set default editor to Neovim
+  community.general.alternatives:
+    name: editor
+    path: /usr/bin/nvim
 
-  - name: Get SVW package repo key
-    ansible.builtin.get_url:
-      url: 'https://repo.smartvisionworks.com/svw.asc'
-      dest: '/usr/share/keyrings/svw.gpg'
-      mode: '0644'
-      force: yes
+- name: Get SVW package repo key
+  ansible.builtin.get_url:
+    url: 'https://repo.smartvisionworks.com/svw.asc'
+    dest: '/usr/share/keyrings/svw.asc'
+    mode: '0644'
+    force: yes
+  register: svw_key_result
+
+- name: Add SVW package repo key
+  ansible.builtin.command:
+    cmd: >
+      gpg
+        --import
+        --batch
+        --no-default-keyring
+        --dearmor
+        -o /usr/share/keyrings/svw.gpg
+        /usr/share/keyrings/svw.asc
+  args:
+    warn: false
+  when: svw_key_result.changed
+  #creates: '/usr/share/keyrings/svw.gpg'
+
+- name: Install SVW package repo
+  ansible.builtin.apt_repository:
+    repo: 'deb [arch=amd64 signed-by=/usr/share/keyrings/svw.gpg] https://repo.smartvisionworks.com/jammy  jammy main'
+    state: present
+    filename: svw
+    update_cache: yes
+
+- name: Install Landscape client
+  ansible.builtin.package:
+    name: landscape-client
+    state: latest
+
+- name: Configure Landscape client
+  ansible.builtin.template:
+    src: 'ls-client.conf.j2'
+    dest: '/etc/landscape/client.conf'
+    owner: 'landscape'
+    mode: '0600'
+
+  notify: Restart Landscape client
+
+- name: Add landcape-client configuration file
+  ansible.builtin.copy:
+    dest: '/etc/default/landscape-client'
+    src: 'landscape-client'
+    owner: 'root'
+    group: 'root'
+    mode: '0644'
+  register: landscape_client_config_result
+
+- name: Get Landscape service running
+  ansible.builtin.systemd:
+    name: landscape-client
+    state: started
+    enabled: true
+
+- name: Install sentinel agent
+  ansible.builtin.package:
+    name: sentinelagent
+    state: present
+    update_cache: yes
+    force: yes
+  register: sentinelagent_result
 
 
-  - name: Install SVW package repo
-    ansible.builtin.apt_repository:
-      repo: 'deb [arch=amd64 signed-by=/usr/share/keyrings/svw.gpg] https://repo.smartvisionworks.com/jammy main'
-      state: present
-      filename: svw
-      update_cache: yes
+- name: Add SentinelOne management token
+  ansible.builtin.command: >
+    /opt/sentinelone/bin/sentinelctl management token set {{ sentinel_token }}
+  args:
+    warn: false
+  register: sentinel_token_result
+  when:
+    - sentinel_token is defined
+    - sentinelagent_result.changed
 
-  - name: Install Landscape client
-    ansible.builtin.package:
-      name: landscape-client
-      state: latest
-
-  - name: Configure Landscape client
-    ansible.builtin.template:
-      src: 'ls-client.conf.j2'
-      dest: '/etc/landscape/client.conf'
-      owner: 'landscape'
-      mode: '0600'
-    notify: Restart Landscape client
-
-    - name: Add landcape-client configuration file
-      ansible.builtin.copy:
-        dest: '/etc/default/landscape-client'
-        src: 'landscape-client'
-        owner: 'root'
-        group: 'root'
-        mode: '0644'
-
-  - name: Get Landscape service running
-    ansible.builtin.systemd:
-      name: landscape-client
-      state: started
-      enabled: true
-
-  - name: Install sentinel agent
-    ansible.builtin.package:
-      name: sentinelagent
-      state: present
-      update_cache: yes
-      force: yes
-    register: sentinelagent_result
-
-
-  - name: Add SentinelOne management token
-    ansible.builtin.command: >
-      /opt/sentinelone/bin/sentinelctl management token set {{ sentinel_token }}
-    args:
-      warn: false
-    register: sentinel_token_result
-    when:
-      - sentinel_token is defined
-      - sentinelagent_result.changed
-
-  - name: Add LetsEncrypt CAs
-    ansible.builtin.copy:
-      src: "letsencrypt/{{ item }}.crt"
-      dest: "/etc/ssl/certs/letsencrypt-{{ item }}.crt"
-      owner: root
-      group: root
-      mode: '0644'
-    loop:
-      - e5
-      - e6
-      - isrgrootx1
-      - isrg-root-x2-cross-signed
-      - isrg-root-x2
-      - r10
-      - r11
-    notify: Update CA certificates
+- name: Add LetsEncrypt CAs
+  ansible.builtin.copy:
+    src: "letsencrypt/{{ item }}.crt"
+    dest: "/etc/ssl/certs/letsencrypt-{{ item }}.crt"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - e5
+    - e6
+    - isrgrootx1
+    - isrg-root-x2-cross-signed
+    - isrg-root-x2
+    - r10
+    - r11
+  notify: Update CA certificates
 
 - name: Pro Attach
   ansible.builtin.command: >
     /usr/bin/pro attach {{ ubuntu_pro_key }}
   args:
     warn: false
-  when: ubuntu_pro_key is defined
+  when:
+    - ubuntu_pro_key is defined
+    - landscape_client_config_result.changed
   register: pro_attach_result
   changed_when: pro_attach_result.rc == 0
-
-handlers:
-  - name: Restart Landscape client
-    ansible.builtin.systemd:
-      name: landscape-client
-      state: restarted
-
-  - name: Update CA certificates
-    ansible.builtin.command: >
-      update-ca-certificates --fresh
-    args:
-      warn: false
-    when: sentinelagent_result.changed or pro_attach_result.changed
