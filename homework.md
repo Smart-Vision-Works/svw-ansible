@@ -6,7 +6,7 @@ Here is a list of puppet modules that need to be transcribed from
   - [x] finish testing
 - svwi_basenode
   - [x] code up
-  - [ ] finish testing
+  - [x] finish testing
 - svwi_vault
   - [ ] code up
   - [ ] finish testing
