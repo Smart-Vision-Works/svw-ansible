@@ -55,3 +55,7 @@ the value was and use `ansible-vault` to edit/add entries in `vault.yml` when
 transcribing secrets.
 
 Go.
+
+NOTE: Ignore any Puppet configurations related to 'Vector' for logging. We no
+longer use it.
+NOTE: Ignore any Puppet configurations related to 'Consul'. We no longer use it.

@@ -1,0 +1,52 @@
+storage "raft" {
+  path = "/opt/vault/data"
+
+  retry_join {
+      leader_api_addr = "https://vault1.svwi.us:8200"
+  }
+  retry_join {
+      leader_api_addr = "https://vault2.svwi.us:8200"
+  }
+  retry_join {
+      leader_api_addr = "https://vault3.svwi.us:8200"
+  }
+}
+
+cluster_addr = "https://{{ ansible_facts['fqdn'] }}:8201"
+api_addr = "https://{{ ansible_facts['fqdn'] }}:8200"
+
+ui = true
+
+plugin_directory = "/opt/vault/plugins"
+
+listener "tcp" {
+  {% if ansible_facts['virtualization']['system'] == 'kvm' %}
+  address     = "0.0.0.0:8200"
+  cluster_address = "{{ ansible_facts['all_ipv4_addresses'][0] }}:8201"
+  {% else %}
+  address = "127.0.0.1:8200"
+  cluster_address = "127.0.0.1:8201"
+  {% endif %}
+  tls_cert_file = "/etc/vault.d/fullchain.pem"
+  tls_key_file = "/etc/vault.d/privkey.pem"
+}
+
+seal "gcpckms" {
+  {% if ansible_facts['cloud_provider'] != 'GCE' %}
+  credentials = "/etc/vault.d/gcpckms.json"
+  {% endif %}
+  project     = "svw-proper"
+  region      = "global"
+  key_ring    = "smartvisionworks"
+  crypto_key  = "vaultv2"
+}
+
+disable_mlock = true
+log_level = "info"
+
+max_lease_ttl = "8760h"
+
+telemetry {
+ dogstatsd_addr = "localhost:8125"
+ disable_hostname = true
+}

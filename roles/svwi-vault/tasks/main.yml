@@ -1,0 +1,8 @@
+---
+- name: Transcribe svwi_vault Puppet module to Ansible role
+  ansible.builtin.include_tasks: install.yml
+- name: Configure Vault
+  ansible.builtin.include_tasks: configure.yml
+- name: Handle Vault Secrets and Special Configurations
+  ansible.builtin.include_tasks: secrets.yml
+

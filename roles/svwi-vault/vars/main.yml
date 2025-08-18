@@ -1,0 +1,10 @@
+---
+vault_version: "1.20.2-1"
+# These variables should be passed from vault.yml
+# Example based on hostname:
+# starsvwiuscert: "{{ vault_secrets.starsvwiuscert }}"
+# starsvwiuskey: "{{ vault_secrets.starsvwiuskey }}"
+#
+# For role/secret IDs, you'd access them based on the target host's hostname:
+# approleid: "{{ vault_secrets[ansible_hostname.split('.')[0] + '_role_id'] }}"
+# secretid: "{{ vault_secrets[ansible_hostname.split('.')[0] + '_secret_id'] }}"
