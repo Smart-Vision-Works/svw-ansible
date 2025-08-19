@@ -1,8 +1,481 @@
----
-- name: Transcribe svwi_vault Puppet module to Ansible role
-  ansible.builtin.include_tasks: install.yml
-- name: Configure Vault
-  ansible.builtin.include_tasks: configure.yml
-- name: Handle Vault Secrets and Special Configurations
-  ansible.builtin.include_tasks: secrets.yml
+# We are translating the below file from Puppet to Ansible.
+# Class for basic vault config and init, meant to be used in tandem with terraform provider vault
+#class svwi-vault {
+#  include svwi_basenode
+#  include svwi_users::service
+#  $hostname = $facts['networking']['fqdn']
+#  $approleid = lookup("${facts['networking']['hostname']}-role-id", undef, undef, '')
+#  $secretid = Sensitive(lookup("${facts['networking']['hostname']}-secret-id", undef, undef, ''))
+#  $hostip = $facts['networking']['ip']
+#  $agentname = "agent-${facts['networking']['hostname']}"
+#  $vaultserviceconsultoken = Sensitive(lookup('vault-service-consul-token', undef, undef, ''))
+#  $starsvwiuscert = lookup('star-svwi-us-crt', undef, undef, '')
+#  $starsvwiuskey = Sensitive(lookup('star-svwi-us-key', undef, undef, ''))
+#  $datacenter = 'svw-proper'
+#  $betterlog = lookup('better_log_token', undef, undef, '')
+#  $betterlog_host = lookup('better_log_host', undef, undef, '')
+#
+#- name: Set gce facts
+#  set_fact:
+#    serviceemail: "{{ facts.gce.instance.serviceAccounts.default.email }}"
+#    project: "{{ facts.gce.project.projectId }}"
+#  when: facts.gce is defined
 
+- name: Install Vault package
+  ansible.builtin.apt:
+    name: vault=1.18.3-1
+    state: present
+  tags: vault
+
+##  # Create Vault log directory
+##  file { '/var/log/vault':
+##    ensure => directory,
+##    owner  => 'vault',
+##    group  => 'hashicorp'
+##  }
+#- name: Create Vault log directory
+#  ansible.builtin.file:
+#    path: '/var/log/vault'
+#    state: directory
+#    owner: 'vault'
+#    group: 'hashicorp'
+#    mode: '0755'
+#
+##
+##  # Render Vault config file from templates
+##  file { '/etc/vault.d/vault.hcl':
+##    ensure  => present,
+##    content => epp('svwi-vault/config.hcl.epp'),
+##    mode    => '0640',
+##    owner   => 'root',
+##    group   => 'vault',
+##    require => [User['vault']],
+##    notify  => Service['vault'],
+##  }
+#
+#- name: Render Vault config file from templates
+#  ansible.builtin.template:
+#    src: 'svwi-vault/config.hcl.j2'
+#    dest: '/etc/vault.d/vault.hcl'
+#    mode: '0640'
+#    owner: 'root'
+#    group: 'vault'
+#  notify:
+#    - Restart Vault service
+#
+##
+##  # Render Vault environment file from templates. This is more important when a member of the cluster is not in GCP
+##  file { '/etc/vault.d/vault.env':
+##    ensure  => present,
+##    content => epp('svwi-vault/vault.env.epp'),
+##    owner   => 'vault',
+##    mode    => '0600',
+##    notify  => Service['vault']
+##  }
+#
+#- name: Render Vault environment file from templates. This is more important when a member of the cluster is not in GCP
+#  ansible.builtin.template:
+#    src: 'svwi-vault/vault.env.j2'
+#    dest: '/etc/vault.d/vault.env'
+#    owner: 'vault'
+#    mode: '0600'
+#  notify:
+#    - Restart Vault service
+#
+#
+#
+#- name: Profile to make loading Vault environment variables easier
+#  ansible.builtin.copy:
+#    src: 'svwi-vault/vault-profile.sh'
+#    dest: '/etc/profile.d/vault.sh'
+#    owner: 'root'
+#    mode: '0644'
+#
+##  # Create Vault home directory
+##  file { '/home/vault':
+##    ensure  => directory,
+##    owner   => 'vault',
+##    mode    => '0755',
+##    require => Package['vault'],
+##  }
+#
+#- name: Create Vault home directory
+#  ansible.builtin.file:
+#    path: '/home/vault'
+#    state: directory
+#    owner: 'vault'
+#    mode: '0755'
+#
+##
+##  # Create Vault user
+##  user { 'vault':
+##    ensure  => present,
+##    groups  => ['ssl-cert','hashicorp'],
+##    require => [Group['ssl-cert'], Group['hashicorp']]
+##  }
+#
+#- name: Create Vault user
+#  ansible.builtin.user:
+#    name: 'vault'
+#    groups: ['ssl-cert', 'hashicorp']
+#    state: present
+#
+##
+##  # Make sure Vault is running
+##  service { 'vault':
+##    ensure    => running,
+##    enable    => true,
+##    require   => File['/etc/vault.d/vault.hcl', '/etc/profile.d/vault.sh'],
+##    subscribe => [Ca_cert::Ca['consul-cert'], Ca_cert::Ca['consul-int-cert']]
+##  }
+#
+#- name: Make sure Vault is running
+#  ansible.builtin.service:
+#    name: 'vault'
+#    state: started
+#    enabled: true
+#
+##
+##  # Only run this if an approle has been created and saved in Vault for this host
+##  if $secretid != '' {
+##    # Create persistent token for Vault agent
+##    vault_secrets::app:role_agent { 'vault':
+##      ensure        => present,
+##      install_vault => false,
+##      vault_addr    => "https://${facts['networking']['fqdn']}:8200",
+##      role_id       => $approleid,
+##      secret_id     => $secretid.unwrap,
+##      owner         => 'vault',
+##      require       => User['vault'],
+##      notify        => Exec['reset-vault-agent'],
+##      filename      => 'vault-vault-agent.hcl'
+##    }
+##
+##    # Required to get the permissions right for the Vault user to be able to use the persisted token
+##    exec { 'reset-vault-agent':
+##      command     => '/usr/bin/systemctl restart vault-vault-agent',
+##      user        => 'root',
+##      refreshonly => true
+##    }
+##  }
+#
+#
+#  - name: Create persistent token for Vault agent
+#    
+#
+##
+##  # Install and configure consul agent for registration with Consul cluster
+##  class { 'consul':
+##    config_hash               => {
+##      'telemetry'              => {
+##        'prometheus_retention_time' => '24h',
+##        'disable_hostname'          => true
+##      },
+##      'data_dir'               => '/opt/consul',
+##      'datacenter'             => 'svw-proper',
+##      'log_level'              => 'INFO',
+##      'node_name'              => $agentname,
+##      'ports'                  => {
+##        'server'   => 7300,
+##        'serf_lan' => 7301,
+##        'https'    => 8501,
+##        'grpc_tls' => 8503
+##      },
+##      'auto_config'            => {
+##        'enabled'          => true,
+##        'intro_token_file' => '/opt/consul/tokens/jwt',
+##        'server_addresses' => [
+##          'consul1.svwi.us:7300',
+##          'consul2.svwi.us:7300',
+##          'consul3.svwi.us:7300'
+##        ]
+##      },
+##      'connect'                => {
+##        'enabled' => true,
+##      },
+##      # Need this here because puppet sometimes finds the wrong ip address
+##      'client_addr'            => "{{ GetPrivateInterfaces | include \"network\" \"10.0.0.0/8\" | attr \"address\" }} {{ GetAllInterfaces | include \"flags\" \"loopback\" | join \"address\" \" \" }}",
+##      'bind_addr'              => "{{ GetPrivateInterfaces | include \"network\" \"10.0.0.0/8\" | attr \"address\" }}",
+##      'addresses'              => {
+##        'https' => "{{ GetPrivateInterfaces | include \"network\" \"10.0.0.0/8\" | attr \"address\" }}",
+##      },
+##      'verify_incoming'        => false,
+##      'verify_outgoing'        => true,
+##      'verify_server_hostname' => true,
+##      'ca_file'                => '/opt/consul/agent-certs/ca.crt',
+##    },
+##    bin_dir                   => '/usr/bin',
+##    require                   => [Package['unzip']],
+##    version                   => '1.19.0',
+##    config_dir                => '/etc/consul.d',
+##    manage_user_home_location => true,
+##  }
+##
+##  # Group for managing ssl certs
+##  group { 'ssl-cert':
+##    ensure  => present,
+##    require => Package['vault'],
+##  }
+##
+##  # consul class created the consul user, but we need to add it to the hashicorp group
+##  exec { 'add-consul-to-hashi-group':
+##    command => '/usr/sbin/usermod -a -G hashicorp consul',
+##    user    => 'root',
+##    unless  => '/bin/bash -c "[[ \"$(/usr/bin/groups consul)\" = *\"hashicorp\"* ]]"',
+##    require => [Group['hashicorp'], User['consul']]
+##  }
+##
+##  # directory used for the jwt that consul auto-configs with
+##  file { '/opt/consul/tokens':
+##    ensure => directory,
+##    owner  => 'consul',
+##  }
+##
+##  # directory for consul agent certs
+##  file { '/opt/consul/agent-certs':
+##    ensure => directory,
+##    owner  => 'consul',
+##    group  => 'consul',
+##  }
+##
+##  # add consul cert to ca-certificates directory
+##  file { '/usr/share/ca-certificates/consul':
+##    ensure => directory,
+##    mode   => '0755'
+##  }
+##
+##  # Best way I could find to bootstrap Vault when standing up a new cluster
+##  if $hostname == 'vault1.svwi.us' {
+##
+##    # Save the initial unseal tokens to GCP secrets manager before we turn it over to GCPKMS
+##    exec { 'init-vault':
+##      command     => '/usr/bin/vault operator init | /snap/bin/gcloud secrets versions add vault-tokens --data-file=- && touch /opt/vault/vault.initialized',
+##      creates     => '/opt/vault/vault.initialized',
+##      user        => 'vault',
+##      environment => ["VAULT_ADDR=https://${hostname}:8200"],
+##      require     => [Service['vault'], File['/home/vault']],
+##    }
+##
+##    # Save a gossip key for configuration to vault to be used by other consul agents later
+##    exec { 'create-initial-gossip-key-consul':
+##      command     => '/usr/bin/consul keygen | tr -d "\\n" | VAULT_TOKEN=$(cat /run/vault-vault/vault.token) /usr/bin/vault kv patch puppetv2/common consul-encryption-key=-',
+##      # I have an empty echo && here because puppet wants a qualified path to start, but I need to set VAULT_TOKEN during runtime
+##      unless      => '/usr/bin/echo && VAULT_TOKEN=$(cat /run/vault-vault/vault.token) /usr/bin/vault kv get -field=consul-encryption-key puppetv2/common',
+##      environment => ["VAULT_ADDR=https://${hostname}:8200"],
+##      user        => 'vault',
+##      require     => [Service['vault']]
+##    }
+##
+##    # Ensure the consul connect token is rotated every year
+##    cron { 'rotate-consul-connect-token':
+##      ensure      => absent,
+##      command     => '/usr/bin/vault token create -format=json -policy=connect-ca | jq -j ".auth.client_token" | /usr/bin/vault kv patch puppetv2/common consul-connect-token=-',
+##      user        => 'vault',
+##      minute      => '0',
+##      hour        => '0',
+##      month       => '1',
+##      environment => ['VAULT_ADDR=http://127.0.0.1:8100'],
+##      # require     => File['/home/vault/.vault-token']
+##    }
+##    # Requirements for a server not in GCP
+##  } elsif !$facts['hypervisors']['kvm']['google'] {
+##    archive { '/tmp/apt-key.gpg':
+##      ensure => present,
+##      source => 'https://packages.cloud.google.com/apt/doc/apt-key.gpg'
+##    }
+##
+##    exec { 'add-gpg-keys':
+##      command => '/usr/bin/apt-key --keyring /usr/share/keyrings/cloud.google.gpg add /tmp/apt-key.gpg',
+##      creates => '/usr/share/keyrings/cloud.google.gpg',
+##      user    => 'root',
+##      require => Archive['/tmp/apt-key.gpg']
+##    }
+##
+##    exec { 'add-gcloud-repo':
+##      command => '/usr/bin/echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | /usr/bin/tee -a /etc/apt/sources.list.d/google-cloud-sdk.list',
+##      unless  => '/usr/bin/test -s /etc/apt/sources.list.d/google-cloud-sdk.list',
+##      user    => 'root',
+##      notify  => Exec['apt_update'],
+##      require => Exec['add-gpg-keys']
+##    }
+##
+##    package { 'google-cloud-cli':
+##      ensure  => latest,
+##      require => Exec['add-gcloud-repo']
+##    }
+##
+##    file { '/etc/vault.d/gcpckms.json':
+##      ensure => present,
+##      owner  => 'vault',
+##      mode   => '0600',
+##    }
+##  }
+##
+##  class { 'svwi_certs':
+##    cert_group => 'vault'
+##  }
+##  # Place the svwi.us wildcard cert and key in the vault config directory if they are set in puppetv2/common
+##  if $starsvwiuscert != '' {
+##    file { '/etc/vault.d/fullchain.pem':
+##      ensure  => present,
+##      content => $starsvwiuscert,
+##      owner   => 'root',
+##      group   => 'ssl-cert', # Added group
+##      mode    => '0640',     # Adjusted mode slightly (group read)
+##      notify  => Service['vault'] # Added notify
+##    }
+##  }
+##
+##  if $starsvwiuskey.unwrap != '' {
+##    file { '/etc/vault.d/privkey.pem':
+##      ensure  => present,
+##      content => $starsvwiuskey.unwrap,
+##      owner   => 'root',
+##      group   => 'ssl-cert',
+##      mode    => '0640',     # Adjusted mode slightly (group read)
+##      notify  => Service['vault']
+##    }
+##  }
+##
+##  # Additional Vault config directory
+##  file { '/opt/vault':
+##    ensure => directory,
+##    owner  => 'vault',
+##    group  => 'hashicorp'
+##  }
+##
+##  # templates to be rendered by the approle agent
+##  file { '/opt/vault/templates':
+##    ensure => directory,
+##    owner  => 'vault',
+##    group  => 'hashicorp'
+##  }
+##
+##  # directory for custom plugins
+##  file { '/opt/vault/plugins':
+##    ensure => directory,
+##    owner  => 'vault',
+##    group  => 'hashicorp'
+##  }
+##
+##  # place the balena secrets engine binary
+##  file { '/opt/vault/plugins/balena':
+##    ensure => present,
+##    owner  => 'vault',
+##    group  => 'hashicorp',
+##    mode   => '0755',
+##    source => 'puppet:///modules/svwi-vault/vault-plugin-secrets-balena'
+##  }
+##
+##  # place the boundary secrets engine binary
+##  file { '/opt/vault/plugins/boundary':
+##    ensure => present,
+##    owner  => 'vault',
+##    group  => 'hashicorp',
+##    mode   => '0755',
+##    source => 'puppet:///modules/svwi-vault/vault-plugin-secrets-boundary'
+##  }
+##
+##  archive { 'vault-plugin-boundary-secrets-engine_v1.0.2_linux_amd64.zip':
+##    path         => '/tmp/vault-plugin-boundary-secrets-engine_v1.0.2_linux_amd64.zip',
+##    source       => 'https://github.com/devops-rob/vault-plugin-boundary-secrets-engine/releases/download/v1.0.2/vault-plugin-boundary-secrets-engine_v1.0.2_linux_amd64.zip',
+##    extract      => true,
+##    extract_path => '/opt/vault/plugins',
+##    creates      => '/opt/vault/plugins/vault-plugin-boundary-secrets-engine_v1.0.2',
+##    cleanup      => true,
+##    require      => File['/opt/vault/plugins']
+##  }
+##
+##
+##  file { '/opt/vault/templates/gcpckms.tpl':
+##    ensure => present,
+##    owner  => 'vault',
+##    group  => 'hashicorp',
+##    source => 'puppet:///modules/svwi-vault/gcpckms.tpl'
+##  }
+##
+##  # template for the consul jwt used for auto config
+##  file { '/opt/vault/templates/consul-jwt.tpl':
+##    ensure => present,
+##    owner  => 'vault',
+##    group  => 'hashicorp',
+##    source => 'puppet:///modules/svwi-vault/consul-jwt.tpl'
+##  }
+##
+##  # token that has access to take a snapshot
+##  file { '/opt/vault/templates/snapshot-token.tpl':
+##    ensure => present,
+##    owner  => 'vault',
+##    group  => 'hashicorp',
+##    source => 'puppet:///modules/svwi-vault/snapshot-token.tpl'
+##  }
+##
+##  # setting the permissions on the snapshot token
+##  file { '/etc/vault.d/snapshots.token':
+##    ensure => present,
+##    owner  => 'vault',
+##    group  => 'hashicorp'
+##  }
+##
+##  # exec { 'get-initial-consul-jwt':
+##  #   command     => '/usr/bin/vault read -format=json identity/oidc/token/consul-auto-config-vault | jq -j ".data.token" > /opt/consul/tokens/jwt',
+##  #   user        => 'consul',
+##  #   onlyif      => '/usr/bin/test -s /run/vault-vault/vault.token',
+##  #   unless      => '/usr/bin/test -s /opt/consul/tokens/jwt',
+##  #   environment => ['VAULT_ADDR=http://127.0.0.1:8100'],
+##  #   notify      => Service['consul'],
+##  #   require     => [Exec['add-consul-to-hashi-group'], File['/opt/consul/tokens']]
+##  # }
+##
+##  # permissions on jwt file for consul
+##  file { '/opt/consul/tokens/jwt':
+##    ensure => present,
+##    owner  => 'consul',
+##    group  => 'hashicorp'
+##  }
+##
+##  # Script to take a snapshot of Vault
+##  file { '/etc/vault.d/take-snapshot.sh':
+##    ensure  => present,
+##    owner   => 'vault',
+##    group   => 'vault',
+##    content => template('svwi-vault/take-snapshot.sh.erb'),
+##    mode    => '0700'
+##  }
+##
+##  # Take a snapshot of Vault every day at 6am
+##  cron { 'vault-snapshot':
+##    ensure  => present,
+##    command => 'cd /home/vault && bash /etc/vault.d/take-snapshot.sh >> /home/vault/snapshot.log 2>&1',
+##    user    => 'vault',
+##    minute  => 0,
+##    hour    => 6
+##  }
+##
+##  include vault_secrets::vault_cert
+##
+##  # Manage renewal of certificates for consul agent mtls communication
+##  vault_cert { 'consul-certs':
+##    ensure            => present,
+##    vault_uri         => 'https://vault1.svwi.us:8200/v1/consul_mtls_int/issue/consul-svw-proper',
+##    cert_data         => {
+##      'common_name' => 'server.svw-proper.consul',
+##      'alt_names'   => "${::facts['networking']['fqdn']},vault.svwi.us",
+##      'ip_sans'     => [$::facts['networking']['ip'], '127.0.0.1'],
+##      'ttl'         => '336h', # 2 weeks
+##    },
+##    # Optional
+##    renewal_threshold => 1,
+##    ca_chain_file     => '/opt/consul/agent-certs/ca.crt',
+##    ca_chain_owner    => 'consul',
+##    ca_chain_group    => 'consul',
+##    cert_file         => '/opt/consul/agent-certs/agent.crt',
+##    cert_owner        => 'consul',
+##    cert_group        => 'consul',
+##    key_file          => '/opt/consul/agent-certs/agent.key',
+##    key_owner         => 'consul',
+##    key_group         => 'consul',
+##    notify            => Service['consul'],
+##    require           => File['/opt/consul/agent-certs']
+##  }
+##}

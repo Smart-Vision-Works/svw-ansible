@@ -1,0 +1,32 @@
+exit_after_auth = false,
+pid_file = "/run/vault/<%= @title %>_vault-agent.pid"
+vault {
+  address = "<%= @vault_addr %>"
+  retry {
+  num_retries = 5
+  }
+}
+auto_auth {
+  method {
+  type = "approle"
+  mount_path = "auth/approle"
+    config = {
+      role_id_file_path = "<%= @approle_id_file %>"
+      secret_id_file_path = "<%= @approle_secret_file %>"
+      remove_secret_id_file_after_reading = false
+    }
+  }
+  sink "file" {
+    config = {
+      path = "<%= @sink_file %>"
+    }
+  }
+}
+template_config {
+  static_secret_render_interval = "57m"
+}
+template {
+  source = "/etc/vault/templates/nomad-token.tpl"
+  destination = "/etc/nomad.d/token" 
+  perms = "0600"
+}

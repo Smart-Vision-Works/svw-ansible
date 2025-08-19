@@ -1,0 +1,4 @@
+---
+name: approle_agent
+modules:
+- name: southalc/vault_secrets

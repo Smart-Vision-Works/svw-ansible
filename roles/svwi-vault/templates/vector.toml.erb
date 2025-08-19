@@ -1,0 +1,294 @@
+# THIS FILE IS MANAGED BY PUPPET. DO NOT MODIFY!
+
+#                                    __   __  __
+#                                    \ \ / / / /
+#                                     \ V / / /
+#                                      \_/  \/
+#
+#                                    V E C T O R
+#                                   Configuration
+#
+# ------------------------------------------------------------------------------
+# Website: https://vector.dev
+# Docs: https://vector.dev/docs
+# Chat: https://chat.vector.dev
+# ------------------------------------------------------------------------------
+[sources.better_stack_host_metrics_<%= @betterlog %>]
+type =  "host_metrics"
+scrape_interval_secs = 30
+collectors = ["cpu", "filesystem", "memory"]
+filesystem.mountpoints.includes = ["/"]
+#filesystem.filesystems.excludes = ["nsfs", "tmpfs", "overlay", "binfmt_misc", "fusectl", "configfs", "hugetlbfs", "mqueue", "debugfs", "systemd-1", "bpf", "efivarfs", "pstore", "cgroup2", "securityfs", "devpts", "udev", "proc", "sysfs"]
+#filesystem.mountpoints.excludes = ["/opt/nomad/*", "/boot/*", "/run/*", "/var/lib/*", "/dev/*"]
+
+# This filters out all CPU stuff except the user mode.
+[transforms.better_stack_host_metrics_mapper_<%= @betterlog %>]
+type = "remap"
+inputs = ["better_stack_host_metrics_<%= @betterlog %>"]
+drop_on_abort = true
+source = '''
+del(.tags.device)
+name = string!(.name)
+
+# This whole script after this point is to reduce cardinality
+if match_any(name, [r'^filesystem_free_bytes',
+        r'^cpu_seconds_total',
+        r'^mmemory_available_bytes'
+        ]) {
+  if .name == "cpu_seconds_total" {
+    if .tags.mode != "user" {
+      abort
+    } else {
+      del(.tags.mode)
+      del(.tags.cpu)
+      .name = "cpu_user_seconds_total"
+    }
+  }
+} else {
+  abort
+}
+'''
+
+[sources.vault-syslog]
+type = "file"
+ignore_older_secs = 600
+include = [ "/var/log/syslog" ]
+read_from = "end"
+
+# [transforms.better_stack_transform_ZEfEgCEtJzBoj82aM1yjrHuC]
+# type = "remap"
+# inputs = [ "*" ]
+# source = '''
+# .dt = del(.timestamp)
+# '''
+
+[sources.better_stack_auth_log_logs_<%= @betterlog %>]
+type = "file"
+read_from = "beginning"
+ignore_older_secs = 600
+include = ["/var/log/auth.log"]
+exclude = []
+
+[transforms.better_stack_auth_log_parser_<%= @betterlog %>]
+type = "remap"
+inputs = ["better_stack_auth_log_logs_<%= @betterlog %>"]
+source = '''
+del(.source_type)
+.dt = del(.timestamp)
+.auth_log = parse_linux_authorization(.message) ?? {}
+
+if .auth_log != {} {
+  .platform = "Linux Authorization"
+  .dt = del(.auth_log.timestamp)
+  .message = del(.auth_log.message)
+  .auth_log.hostname = del(.host)
+
+  # extract message metadata
+  tmp = string!(.message)
+  .message_metadata = {}
+
+  ips = parse_regex_all!(tmp, r'\b(?P<ip>(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))\b')
+  if exists(ips[0].ip) { .message_metadata.ipv4_1 = ips[0].ip; tmp = replace(tmp, string!(ips[0].ip), "") }
+  if exists(ips[1].ip) { .message_metadata.ipv4_2 = ips[1].ip; tmp = replace(tmp, string!(ips[1].ip), "") }
+  if exists(ips[2].ip) { .message_metadata.ipv4_3 = ips[2].ip; tmp = replace(tmp, string!(ips[2].ip), "") }
+  if exists(ips[3].ip) { .message_metadata.ipv4_4 = ips[3].ip; tmp = replace(tmp, string!(ips[3].ip), "") }
+  if exists(ips[4].ip) { .message_metadata.ipv4_5 = ips[4].ip; tmp = replace(tmp, string!(ips[4].ip), "") }
+
+  # we match only full IPv6 addresses
+  ipv6s = parse_regex_all!(tmp, r'\b(?P<ip>(?:[a-fA-F0-9]{1,4}:){7}[a-fA-F0-9]{1,4})\b')
+  if exists(ipv6s[0].ip) { .message_metadata.ipv6_1 = ipv6s[0].ip; tmp = replace(tmp, string!(ipv6s[0].ip), "") }
+  if exists(ipv6s[1].ip) { .message_metadata.ipv6_2 = ipv6s[1].ip; tmp = replace(tmp, string!(ipv6s[1].ip), "") }
+  if exists(ipv6s[2].ip) { .message_metadata.ipv6_3 = ipv6s[2].ip; tmp = replace(tmp, string!(ipv6s[2].ip), "") }
+  if exists(ipv6s[3].ip) { .message_metadata.ipv6_4 = ipv6s[3].ip; tmp = replace(tmp, string!(ipv6s[3].ip), "") }
+  if exists(ipv6s[4].ip) { .message_metadata.ipv6_5 = ipv6s[4].ip; tmp = replace(tmp, string!(ipv6s[4].ip), "") }
+
+  numbers = parse_regex_all!(tmp, r'(?P<num>\b\d+(?:\.\d+)?\b)')
+  if exists(numbers[0].num) { .message_metadata.param1 = to_int(numbers[0].num) ?? to_float(numbers[0].num) ?? null }
+  if exists(numbers[1].num) { .message_metadata.param2 = to_int(numbers[1].num) ?? to_float(numbers[1].num) ?? null }
+  if exists(numbers[2].num) { .message_metadata.param3 = to_int(numbers[2].num) ?? to_float(numbers[2].num) ?? null }
+  if exists(numbers[3].num) { .message_metadata.param4 = to_int(numbers[3].num) ?? to_float(numbers[3].num) ?? null }
+  if exists(numbers[4].num) { .message_metadata.param5 = to_int(numbers[4].num) ?? to_float(numbers[4].num) ?? null }
+  if exists(numbers[5].num) { .message_metadata.param6 = to_int(numbers[5].num) ?? to_float(numbers[5].num) ?? null }
+  if exists(numbers[6].num) { .message_metadata.param7 = to_int(numbers[6].num) ?? to_float(numbers[6].num) ?? null }
+  if exists(numbers[7].num) { .message_metadata.param8 = to_int(numbers[7].num) ?? to_float(numbers[7].num) ?? null }
+  if exists(numbers[8].num) { .message_metadata.param9 = to_int(numbers[8].num) ?? to_float(numbers[8].num) ?? null }
+  if exists(numbers[9].num) { .message_metadata.param10 = to_int(numbers[9].num) ?? to_float(numbers[9].num) ?? null }
+
+} else {
+  del(.auth_log)
+}
+'''
+
+[transforms.parse_syslog]
+type = "remap"
+inputs = ["vault-syslog"]
+source = '''
+del(.source_type)
+.dt = del(.timestamp)
+sys_log = parse_syslog!(.message)
+
+if sys_log != {} {
+  .sys_log = sys_log
+  .dt = del(.sys_log.timestamp)
+  .platform = .sys_log.appname
+  .message = del(.sys_log.message)
+
+  message = string(.message)
+  if .sys_log.appname == "NetworkManager" {
+    nm_fields = parse_regex(.message, r'^^[^<]*<(?P<level>[^>]+)>\s+\[(?P<epoch_seconds>[^.]+)[.](?P<epoch_fraction>\d{4})\](?P<message>.+)$') ?? {}
+
+    if nm_fields != {} {
+      .level = upcase(string!(nm_fields.level))
+      .message = nm_fields.message
+      # Important to use parse_timestamp since the epoch isn't actually since UTC, but local time :(
+      # parse_timestamp corrects this.
+      .dt = parse_timestamp!(join!([nm_fields.epoch_seconds, ".", nm_fields.epoch_fraction]), "%s%.f")
+    }
+  } else {
+    double_check = parse_regex(message, r'^(?P<timestamp>[0-9-:.TZ]+) \[?(?P<level>[^]]+)\]? (?P<message>.*)$') ?? null
+    if double_check != null {
+      .dt = double_check.timestamp
+      .message = double_check.message
+      .level = double_check.level
+    }
+  }
+  american_military = parse_regex(message, r'^(?P<timestamp>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}): (?P<message>.+)$') ?? {}
+  if american_military != {} {
+    .dt = parse_timestamp(american_military.timestamp, "%Y/%m/%d %H:%M:%S") ?? .dt
+    .mesage = american_military.message
+  }
+}
+
+message = string(.message) ?? ""
+if match(message, r'^\s*http: TLS handshake error from \S+ EOF$') {
+  abort
+}
+if .message == "vault_audit" {
+  abort
+}
+
+
+level = string(upcase(.level) ?? "UNKNOWN")
+level = replace(level, r'^([0-9.,:-]+\s+)?(?P<short_code>UNKNOWN|ERROR|WARN|INFO|DEBUG|TRACE).+$', "$$short_code")
+if match(message, r'[Ee]rror') || match(message, r'[Ff]ail') {
+  level = "ERROR"
+}
+.level = level
+'''
+[transforms.better_stack_syslog_metrics_<%= @betterlog %>]
+type =  "log_to_metric"
+inputs = [ "parse_syslog" ]
+
+[[transforms.better_stack_syslog_metrics_<%= @betterlog %>.metrics]]
+type = "counter"
+field = "level"
+name = "logs"
+tags.host = "{{host}}"
+tags.platform = "{{platform}}"
+tags.level = "{{level}}"
+
+[sources.vault-audit]
+type = "socket"
+address = "127.0.0.1:1515"
+mode = "tcp"
+
+[transforms.vault_rename_audit]
+type = "remap"
+inputs = ["vault-audit"]
+drop_on_abort = true
+source = '''
+. = parse_json!(.message)
+.hostname = get_hostname!()
+.level = "INFO"
+.platform = "vault-audit"
+
+# ignore puppet vault requests, 1 request per imported variable = flooded logs
+if match!(.request.mount_point, r'puppetv2.*') {
+  abort
+}
+
+if exists(.response) {
+  if .auth.policy_results.allowed == true {
+    .authorization = "OK"
+  } else {
+    .authorization = "FORBIDDEN"
+    .level = "WARN"
+  }
+} else {
+  .authorization = "UNKNOWN"
+}
+.message = join!([.request.operation, .request.path, .authorization], " ")
+'''
+
+[transforms.better_stack_vault_audit_metrics_<%= @betterlog %>]
+type =  "log_to_metric"
+inputs = [ "vault_rename_audit" ]
+
+[[transforms.better_stack_vault_audit_metrics_<%= @betterlog %>.metrics]]
+type = "counter"
+field = "authorization"
+name = "vault_audit"
+tags.host = "{{host}}"
+tags.authorization = "{{authorization}}"
+tags.operation = "{{operation}}"
+
+[transforms.syslog_remove_landscape_client]
+type = "filter"
+inputs = [ "parse_syslog" ]
+condition = '.sys_log.appname != "landscape-client"'
+
+<% if @facts['hypervisors']['vmware'] %>
+[transforms.syslog_remove_multipart]
+type = "filter"
+inputs = [ "syslog_remove_landscape_client" ]
+condition = '.sys_log.appname != "multipathd"'
+
+
+[sinks.better_stack_http_sink_<%= @betterlog %>]
+type = "http"
+method = "post"
+uri = "https://<%= @betterlog_host %>/"
+encoding.codec = "json"
+auth.strategy = "bearer"
+auth.token = "<%= @betterlog %>"
+inputs = [
+  "better_stack_auth_log_parser_<%= @betterlog %>",
+  "syslog_remove_multipart",
+  "vault_rename_audit",
+
+]
+<% else %>
+[sinks.better_stack_http_sink_<%= @betterlog %>]
+type = "http"
+method = "post"
+uri = "https://<%= @betterlog_host %>/"
+encoding.codec = "json"
+auth.strategy = "bearer"
+auth.token = "<%= @betterlog %>"
+inputs = [
+  "better_stack_auth_log_parser_<%= @betterlog %>",
+  "syslog_remove_landscape_client",
+  "vault_rename_audit",
+]
+<% end %>
+
+[sinks.better_stack_http_metrics_sink_<%= @betterlog %>]
+type = "http"
+method = "post"
+uri = "https://<%= @betterlog_host %>/metrics"
+encoding.codec = "json"
+auth.strategy = "bearer"
+auth.token = "<%= @betterlog %>"
+inputs = ["better_stack_host_metrics_mapper_<%= @betterlog %>",
+          "better_stack_syslog_metrics_<%= @betterlog %>",
+          "better_stack_vault_audit_metrics_<%= @betterlog %>"]
+
+# [sinks.better_stack_http_metrics_sink_<%= @betterlog %>]
+# type = "http"
+# method = "post"
+# uri = "https://<%= @betterlog_host %>/metrics"
+# encoding.codec = "json"
+# auth.strategy = "bearer"
+# auth.token = "<%= @betterlog %>"
+# inputs = ["better_stack_docker_metrics_parser_<%= @betterlog %>"]
+

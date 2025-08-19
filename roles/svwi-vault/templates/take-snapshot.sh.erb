@@ -1,0 +1,14 @@
+#!/bin/bash
+# export VAULT_TOKEN=<%= @vaultlocaltoken %>
+export VAULT_ADDR="https://<%= @hostname %>:8200"
+
+
+FILEPATH="vault_backup_$(date +"%m_%d_%Y")_gcpckms_v$(<% if @facts['gce'] %>/snap<% else %>/usr<% end %>/bin/gcloud kms keys describe vaultv2 --keyring=smartvisionworks --location=global --format=json | jq -j ".primary.name" | sed 's:.*/::').snap"
+# snapshot if leader
+if [ "$(VAULT_TOKEN=$(cat /run/vault-vault/vault.token) vault operator raft list-peers -address=$VAULT_ADDR --format=json | jq --raw-output '.data.config.servers[] | select(.leader==true) | .address')" = "$(hostname):8201" ]; then
+  <% if @facts['hypervisors']['vmware'] %>/usr/bin/gcloud auth activate-service-account --key-file /etc/vault.d/gcpckms.json --project svw-proper<% end %>
+  echo "make raft snapshot $raft_backup/$time.snapshot ..."
+  VAULT_TOKEN=$(cat /run/vault-vault/vault.token) /usr/bin/vault operator raft snapshot save -address=$VAULT_ADDR $FILEPATH && <% if @facts['gce'] %>/snap<% else %>/usr<% end %>/bin/gcloud alpha storage cp $FILEPATH gs://svw-vault-snapshots --access-token-file=/etc/vault.d/snapshots.token && rm $FILEPATH && curl --retry 3 https://uptime.betterstack.com/api/v1/heartbeat/v6LYMQY48qk9KRe7Erx77GoE
+else
+  echo "not leader, skipping raft snapshot."
+fi

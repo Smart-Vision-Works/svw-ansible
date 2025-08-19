@@ -1,0 +1,51 @@
+exit_after_auth = false,
+pid_file = "/run/vault/<%= @title %>_vault-agent.pid"
+vault {
+  address = "<%= @vault_addr %>"
+  retry {
+  num_retries = 5
+  }
+}
+auto_auth {
+  method {
+  type = "approle"
+  mount_path = "auth/approle"
+    config = {
+      role_id_file_path = "<%= @approle_id_file %>"
+      secret_id_file_path = "<%= @approle_secret_file %>"
+      remove_secret_id_file_after_reading = false
+    }
+  }
+  sink "file" {
+    config = {
+      path = "<%= @sink_file %>"
+    }
+  }
+}
+cache {
+  use_auto_auth_token = true
+}
+template_config {
+  static_secret_render_interval = "57m"
+}
+<% if @facts['hypervisors']['vmware'] %>
+template {
+  source = "/opt/vault/templates/gcpckms.tpl"
+  destination = "/etc/vault.d/gcpckms.json"
+  perms = "0640"
+
+  command = "/usr/bin/systemctl restart vault"
+}
+<% end %>
+template {
+  source = "/opt/vault/templates/snapshot-token.tpl"
+  destination = "/etc/vault.d/snapshots.token" 
+  perms = "0640"
+}
+template {
+  source = "/opt/vault/templates/consul-jwt.tpl"
+  destination = "/opt/consul/tokens/jwt" 
+  perms = "0640"
+
+  command = "/usr/bin/systemctl restart consul"
+}

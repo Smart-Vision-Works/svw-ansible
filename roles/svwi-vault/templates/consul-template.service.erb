@@ -1,0 +1,18 @@
+[Unit]
+Description=Consul Agent
+Wants=consul.service
+
+[Service]
+User=root
+Group=hashicorp
+ExecStart=/usr/bin/consul-template -config /opt/consul/templates/consul_template.hcl
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+LimitNOFILE=131072
+# Environment=VAULT_TOKEN=<%= @vaultlocaltoken %>
+<% if @facts['hypervisors']['vmware'] %>
+Environment=GOOGLE_APPLICATION_CREDENTIALS=/etc/vault.d/gcpckms.json
+<% end %>
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,101 @@
+exit_after_auth = false,
+pid_file = "/run/vault/<%= @title %>_vault-agent.pid"
+vault {
+  address = "<%= @vault_addr %>"
+  retry {
+  num_retries = 5
+  }
+}
+auto_auth {
+  method {
+  type = "approle"
+  mount_path = "auth/approle"
+    config = {
+      role_id_file_path = "<%= @approle_id_file %>"
+      secret_id_file_path = "<%= @approle_secret_file %>"
+      remove_secret_id_file_after_reading = false
+    }
+  }
+  sink "file" {
+    config = {
+      path = "<%= @sink_file %>"
+    }
+  }
+}
+# cache {
+#   use_auto_auth_token = true
+# }
+template_config {
+  static_secret_render_interval = "57m"
+}
+
+template {
+  source = "/opt/vault/templates/consul-jwt.tpl"
+  destination = "/opt/consul/tokens/jwt" 
+  perms = "0640"
+
+  command = "/usr/bin/systemctl restart consul"
+}
+
+template {
+  # This is the source file on disk to use as the input template. This is often
+  # called the "consul-template template".
+  source      = "/opt/consul/templates/connect-root-cert.tpl"
+
+  # This is the destination path on disk where the source template will render.
+  # If the parent directories do not exist, consul-template will attempt to
+  # create them, unless create_dest_dirs is false.
+  destination = "/opt/consul/connect-root.crt"
+
+  # This is the permission to render the file. If this option is left
+  # unspecified, consul-template will attempt to match the permissions of the
+  # file that already exists at the destination path. If no file exists at that
+  # path, the permissions are 0644.
+  perms       = "0700"
+
+  # This is the optional command to run when the template is rendered. The
+  # command will only run if the resulting template changes.
+  # command     = "/opt/push-cert.sh"
+}
+
+template {
+  # This is the source file on disk to use as the input template. This is often
+  # called the "consul-template template".
+  source      = "/opt/consul/templates/grafana-sidecar.tpl"
+
+  # This is the destination path on disk where the source template will render.
+  # If the parent directories do not exist, consul-template will attempt to
+  # create them, unless create_dest_dirs is false.
+  destination = "/etc/consul.d/grafana-sidecar.hcl"
+
+  # This is the permission to render the file. If this option is left
+  # unspecified, consul-template will attempt to match the permissions of the
+  # file that already exists at the destination path. If no file exists at that
+  # path, the permissions are 0644.
+  perms       = "0640"
+
+  user        = "consul"
+  group       = "consul"
+}
+
+template {
+  # This is the source file on disk to use as the input template. This is often
+  # called the "consul-template template".
+  source      = "/opt/consul/templates/grafana-default_token.tpl"
+
+  # This is the destination path on disk where the source template will render.
+  # If the parent directories do not exist, consul-template will attempt to
+  # create them, unless create_dest_dirs is false.
+  destination = "/opt/consul/default.token"
+
+  # This is the permission to render the file. If this option is left
+  # unspecified, consul-template will attempt to match the permissions of the
+  # file that already exists at the destination path. If no file exists at that
+  # path, the permissions are 0644.
+  perms       = "0640"
+
+  user        = "consul"
+  group       = "consul"
+
+  command = "/opt/rotate_token.sh && /usr/bin/systemctl restart grafana-sidecar"
+}

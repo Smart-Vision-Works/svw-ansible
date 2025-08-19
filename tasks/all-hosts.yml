@@ -5,3 +5,5 @@
     name: svwi-users
 - ansible.builtin.include_role:
     name: svwi-basenode
+- ansible.builtin.include_role:
+    name: svwi-vault
