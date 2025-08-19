@@ -90,6 +90,12 @@
     force: yes
   register: sentinelagent_result
 
+- name: Install SVW package repo
+  ansible.builtin.file:
+    repo: 'deb [arch=amd64 signed-by=/usr/share/keyrings/svw.gpg] https://repo.smartvisionworks.com/jammy jammy main'
+    state: absent
+    filename: svw
+    update_cache: yes
 
 - name: Add SentinelOne management token
   ansible.builtin.command: >
