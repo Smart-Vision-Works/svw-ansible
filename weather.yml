@@ -1,0 +1,22 @@
+- name: Check and update temperature
+  hosts: localhost
+  gather_facts: false
+
+  tasks:
+
+    - ansible.builtin.include_vars:
+        file: vault.yml
+        name: vault
+    - name: Get and write temperature if changed
+      weather_temp:
+        api_key: "{{ vault.weather }}"
+        city: "London"
+        filepath: "/tmp/current_temp.txt"
+      register: weather_result
+    # - ansible.builtin.include_role:
+    #     name: svwi-users
+
+    - name: Show weather result
+      debug:
+        msg: "new temp is {{ weather_result.new_temperature }}"
+        

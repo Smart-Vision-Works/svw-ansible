@@ -1,7 +1,0 @@
-- ansible.builtin.include_vars:
-    file: vault.yml
-    name: vault
-- ansible.builtin.include_role:
-    name: svwi-users
-- ansible.builtin.include_role:
-    name: svwi-basenode

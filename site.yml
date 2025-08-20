@@ -2,5 +2,10 @@
 - name: Ensure the whole site is in compliance with IaC
   hosts: all
   tasks:
-    - ansible.builtin.include_tasks:
-        file: tasks/all-hosts.yml
+    - ansible.builtin.include_vars:
+        file: vault.yml
+        name: vault
+    - ansible.builtin.include_role:
+        name: svwi-users
+    - ansible.builtin.include_role:
+        name: svwi-basenode
