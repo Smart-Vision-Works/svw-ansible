@@ -1,4 +1,6 @@
-
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
 - name: Install base packages
   ansible.builtin.package:
     name:
@@ -35,14 +37,11 @@
   ansible.builtin.command:
     cmd: >
       gpg
-        --import
         --batch
         --no-default-keyring
         --dearmor
         -o /usr/share/keyrings/svw.gpg
         /usr/share/keyrings/svw.asc
-  args:
-    warn: false
   when: svw_key_result.changed
   #creates: '/usr/share/keyrings/svw.gpg'
 
@@ -65,7 +64,7 @@
     owner: 'landscape'
     mode: '0600'
 
-  notify: Restart Landscape client
+  # notify: Restart Landscape client
 
 - name: Add landcape-client configuration file
   ansible.builtin.copy:
@@ -76,11 +75,11 @@
     mode: '0644'
   register: landscape_client_config_result
 
-- name: Get Landscape service running
-  ansible.builtin.systemd:
-    name: landscape-client
-    state: started
-    enabled: true
+# - name: Get Landscape service running
+#   ansible.builtin.systemd:
+#     name: landscape-client
+#     state: started
+#     enabled: true
 
 - name: Install sentinel agent
   ansible.builtin.package:
@@ -90,12 +89,23 @@
     force: yes
   register: sentinelagent_result
 
-- name: Install SVW package repo
-  ansible.builtin.file:
-    repo: 'deb [arch=amd64 signed-by=/usr/share/keyrings/svw.gpg] https://repo.smartvisionworks.com/jammy jammy main'
-    state: absent
-    filename: svw
-    update_cache: yes
+# - name: Install SVW package repo
+#   ansible.builtin.apt_repository:
+#     repo: 'deb [arch=amd64 signed-by=/usr/share/keyrings/svw.gpg] https://repo.smartvisionworks.com/jammy jammy main'
+#     state: present
+#     filename: svw
+#     update_cache: yes
+# this was to replace builtin.file, but it didn't do what we needed. so we added a handler. 
+
+- name: Add SVW repo file
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/svw.list
+    content: |
+      deb [arch=amd64 signed-by=/usr/share/keyrings/svw.gpg] https://repo.smartvisionworks.com/jammy jammy main
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Update apt cache
 
 - name: Add SentinelOne management token
   ansible.builtin.command: >
