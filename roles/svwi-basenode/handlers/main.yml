@@ -6,6 +6,8 @@
 - name: Update CA certificates
   ansible.builtin.command: >
     update-ca-certificates --fresh
-  args:
-    warn: false
   when: sentinelagent_result.changed or pro_attach_result.changed
+
+- name: Update apt cache
+  ansible.builtin.command:
+    cmd: apt-get update
