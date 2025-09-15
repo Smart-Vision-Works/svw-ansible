@@ -1,0 +1,151 @@
+---
+# - name: Check that the variable buddyip is set
+#   ansible.builtin.fail:
+#     msg: "buddyip is not defined or is empty"
+#   when: buddyip is not defined or buddyip == ""
+
+- name: Ensure required packages are installed
+  ansible.builtin.apt:
+    name:
+      - curl
+      - mariadb-client
+      - git
+      - jq
+    state: present
+    update_cache: yes
+
+# - name: Install dependencies on Debian/Ubuntu
+#   ansible.builtin.apt:
+#     name:
+#       - curl
+#       - mariadb-client
+#       - git
+#       - jq
+#     state: present
+#     update_cache: yes
+#   when: ansible_facts['os_family'] == 'Debian'
+
+- name: Ensure SSH directory exists
+  ansible.builtin.file:
+    path: /root/.ssh
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Copy SSH config for Github
+  ansible.builtin.copy:
+    src: ssh-config
+    dest: /root/.ssh/config
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Ensure SSH key for github deploy exists
+  ansible.builtin.copy:
+    content: "{{ dnsgithubkey }}"
+    dest: /root/.ssh/dns
+    owner: root
+    group: root
+    mode: '0400'
+  when: dnsgithubkey != ""
+
+- name: Clone PowerDNS management repo
+  ansible.builtin.git:
+    repo: "{{ git_repo }}"
+    dest: "/opt/svwdns"
+    version: HEAD
+    accept_hostkey: yes
+    key_file: /root/.ssh/dns
+    force: yes
+
+- name: Write .env file for svwdns
+  ansible.builtin.template:
+    src: env.j2
+    dest: /opt/svwdns/.env
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Copy database initialization script
+  ansible.builtin.copy:
+    src: initdb.sql
+    dest: /opt/svwdns/initdb.sql
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Set server-id in server.cnf
+  ansible.builtin.lineinfile:
+    path: /opt/svwdns/server.cnf
+    regexp: '^server-id'
+    line: "server-id = {{ sqlid }}"
+    create: yes
+
+- name: Ensure systemd-resolved is disabled
+  ansible.builtin.service:
+    name: systemd-resolved
+    enabled: no
+
+- name: Set /etc/resolv.conf to dummy value for DNS container setup
+  ansible.builtin.copy:
+    content: "nameserver 0.0.0.0"
+    dest: /etc/resolv.conf
+    force: yes
+
+- name: Copy svw-dns systemd service file
+  ansible.builtin.copy:
+    src: svw-dns.service
+    dest: /etc/systemd/system/svw-dns.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload systemd
+
+- name: Enable and start PowerDNS docker-compose service
+  ansible.builtin.systemd:
+    name: svw-dns
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+- name: Ensure backup directory exists
+  ansible.builtin.file:
+    path: /var/backups/powerdns
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Ensure backup log file exists
+  ansible.builtin.file:
+    path: /var/log/pdns-backup.log
+    state: touch
+    owner: root
+    group: root
+    mode: '0640'
+
+- name: Install backup script
+  ansible.builtin.template:
+    src: db-backup.sh.j2
+    dest: /usr/local/bin/pdns-backup.sh
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Backup cron job
+  ansible.builtin.cron:
+    name: "powerdns-backup"
+    user: root
+    minute: "0"
+    hour: "3"
+    job: "/usr/local/bin/pdns-backup.sh"
+
+# Certbot DNS certificate update cron
+- name: Certbot DNS cert cron job
+  ansible.builtin.cron:
+    name: "dns-cert"
+    user: root
+    minute: "0"
+    hour: "23"
+    job: "cd /opt/svwdns && /usr/bin/docker compose up -d certbot"

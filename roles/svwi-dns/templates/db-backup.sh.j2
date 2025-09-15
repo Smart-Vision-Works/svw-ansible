@@ -1,0 +1,126 @@
+set -ex
+rm -f /var/backups/powerdns/gcp_upload_result.json
+#!/bin/bash
+# MariaDB database backup script for PowerDNS
+# Intended to be run as a user with sufficient privileges to run mysqldump
+
+# Set environment variables
+export VAULT_ADDR="https://vault1.svwi.us:8200"
+# the database password will be read from a file managed by the vault agent
+
+# database credentials (assuming user \'powerdns' and database 'powerdns')
+db_user="root"
+db_name="powerdns"
+# vault token file path (assuming similar structure to landscape)
+vault_token_file="/run/vault-root/powerdns.token"
+
+# get the hostname
+hostname=$(hostname)
+
+# create a timestamp for the backup file
+timestamp=$(date +"%y%m%d_%h%m%s")
+backup_dir="/var/backups/powerdns"
+backup_file="${backup_dir}/${hostname}_${db_name}_${timestamp}.sql.gz"
+gcp_bucket="svw-powerdns-backups"
+
+# Ensure backup directory exists
+mkdir -p ${backup_dir}
+
+# Ensure log file exists
+log_file="/var/log/pdns-backup.log"
+touch ${log_file}
+
+# Log function
+log() {
+  echo "$(date): $1" | tee -a ${log_file}
+}
+
+log "INFO: Starting MariaDB backup for database ${db_name} on ${HOSTNAME}"
+
+if [ -f "${vault_token_file}" ]; then
+  log "INFO: Vault token file exists at ${vault_token_file}"
+else
+  log "ERROR: Vault token file does not exist at ${vault_token_file}"
+  exit 1
+fi
+
+# Get the database password from Vault using the Vault agent token
+
+VAULT_TOKEN=$(cat ${vault_token_file})
+db_password=$(curl -s \
+    --header "X-Vault-Token: ${VAULT_TOKEN}" \
+    "${VAULT_ADDR}/v1/secret/data/puppetv2/common/pdns-sql-pw" | \
+    jq -r .data.data.password)
+
+gcp_token=$(curl \
+  -s \
+  --header "X-Vault-Token: ${VAULT_TOKEN}" \
+  "${VAULT_ADDR}/v1/gcp/static-account/landscape-backup/token" \
+  | jq -r .data.token)
+
+if [ -z "${db_password}" ]; then
+  log "ERROR: Could not retrieve database password from Vault."
+  exit 1
+fi
+
+log "INFO: Dumping database ${db_name}..."
+if mysqldump \
+  --host=127.0.0.1 \
+  --port=3306 \
+  --user=${db_user} \
+  --password=${db_password} \
+  ${db_name} | \
+  gzip > ${backup_file}
+then
+  log "INFO: Database dump completed successfully."
+else
+  log "ERROR: Database dump failed."
+  exit 1
+fi
+
+if [ $? -eq 0 ]; then
+  log "INFO: Database dump completed successfully."
+  log "INFO: Backup saved at: ${backup_file}"
+  ls -lh ${backup_file} | tee -a ${log_file}
+
+  # Check if we have access to a vault token for GCP
+  if [ -f "${vault_token_file}" ]; then
+    log "INFO: Found Vault token, attempting to upload to GCP bucket..."
+
+    # Read vault token (from AppRole agent) and get GCP token
+    gcp_token=$(curl -s --header "X-Vault-Token: ${VAULT_TOKEN}" ${VAULT_ADDR}/v1/gcp/static-account/powerdns-backup/token | jq -r .data.token)
+
+    if [ -n "${gcp_token}" ] && [ "${gcp_token}" != "null" ]; then
+      log "INFO: Retrieved GCP token, uploading to bucket..."
+
+      # Upload to GCP
+      curl -s -X POST --data-binary @${backup_file} \
+        -H "Authorization: Bearer ${gcp_token}"
+        -H "Content-Type: application/octet-stream"
+        "https://storage.googleapis.com/upload/storage/v1/b/${gcp_bucket}/o?name=${HOSTNAME}_${db_name}_${timestamp}.sql.gz&uploadType=media" | tee /var/backups/powerdns/gcp_upload_result.json > /dev/null
+
+      if grep -q "kind" /var/backups/powerdns/gcp_upload_result.json; then
+        log "INFO: Successfully uploaded backup to GCP bucket ${gcp_bucket}"
+
+        # After successful upload, keep local backups for just 7 days
+        find ${backup_dir} -name "${HOSTNAME}_${db_name}_*.sql.gz" -type f -mtime +7 -delete
+        log "INFO: Cleaned up old local backups (keeping 7 days of history)."
+      else
+        log "ERROR: Could not upload to GCP: $(cat /var/backups/powerdns/gcp_upload_result.json)"
+        log "INFO: Keeping local backups for longer since upload failed."
+      fi
+    else
+      log "ERROR: Could not retrieve GCP token from Vault, skipping upload."
+    }
+  else
+    log "ERROR: No Vault token found at ${vault_token_file}, skipping GCP upload."
+
+    # Keep backups for longer (30 days) if we can not upload to GCP
+    find ${backup_dir} -name "${HOSTNAME}_${db_name}_*.sql.gz" -type f -mtime +30 -delete
+    log "INFO: Cleaned up old local backups (keeping 30 days of history)."
+  fi
+else
+  log "ERROR: Database dump failed."
+fi
+
+log "INFO: Backup process completed"

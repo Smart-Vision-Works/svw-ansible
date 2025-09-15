@@ -1,0 +1,9 @@
+---
+# buddyip: ""
+dnshostname: "{{ ansible_facts['hostname'] }}"
+sqlid: "101"
+git_repo: "git@github.com:Smart-Vision-Works/dns.git"
+dnsgithubkey: "$HOME/Code/svw-ansible/vault.yml"
+dnssqlpw: "{{ lookup('env','HOME') }}/Code/svw-ansible/vault.yml"
+dnsapikey: "{{ lookup('env','HOME') }}/Code/svw-ansible/vault.yml"
+dnssalt: "{{ lookup('env','HOME') }}/Code/svw-ansible/vault.yml"
