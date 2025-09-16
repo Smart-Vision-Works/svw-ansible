@@ -12,6 +12,9 @@
 *.retry
 /.env
 /tmp
+.env
+initdb.sql
+server.cnf
 
 # Test files
 /.vagrant

@@ -1,3 +1,5 @@
 ---
 - name: Reload systemd
   ansible.builtin.command: systemctl daemon-reload
+  when: ansible_virtualization_type != "docker"
+  # TODO: Remove this conditional when running outside of Docker environments

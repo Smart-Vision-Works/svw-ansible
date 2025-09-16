@@ -58,6 +58,8 @@
     accept_hostkey: yes
     key_file: /root/.ssh/dns
     force: yes
+  when: dnsgithubkey != ""
+
 
 - name: Write .env file for svwdns
   ansible.builtin.template:
@@ -92,6 +94,9 @@
     content: "nameserver 0.0.0.0"
     dest: /etc/resolv.conf
     force: yes
+  when: ansible_virtualization_type != "docker"
+# TODO: Remove this block when DNS container setup is finalized and testing is complete
+# Remove or update this when deploying to production environments.
 
 - name: Copy svw-dns systemd service file
   ansible.builtin.copy:
@@ -108,6 +113,9 @@
     enabled: yes
     state: started
     daemon_reload: yes
+  when: ansible_virtualization_type != "docker"
+  # remove when not testing
+
 
 - name: Ensure backup directory exists
   ansible.builtin.file:
