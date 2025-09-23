@@ -1,0 +1,15 @@
+[Unit]
+Description=Boundary NFS Connection
+Requires=gnome-session.target graphical-session.target
+
+[Service]
+ExecStartPre=/usr/bin/boundary authenticate oidc -addr=https://45fd7f1b-a8f8-4234-aead-1bd82ed4f05a.boundary.hashicorp.cloud/ -auth-method-id=amoidc_FQcYFJBwXu -keyring-type secret-service
+ExecStart=/usr/bin/boundary connect -target-id ttcp_1zaoZ3hE22 -keyring-type secret-service -addr=https://45fd7f1b-a8f8-4234-aead-1bd82ed4f05a.boundary.hashicorp.cloud/
+Type=simple
+Restart=always  
+RestartSec=60
+KillMode=control-group
+TimeoutSec=60
+
+[Install]
+WantedBy=default.target

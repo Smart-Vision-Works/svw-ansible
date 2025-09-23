@@ -1,0 +1,71 @@
+---
+# SVWI Labelers Role - GPU-enabled labeling station configuration
+- name: Include variables
+  ansible.builtin.include_vars: "{{ item }}"
+  with_items:
+    - "main.yml"
+
+- name: Load kernel modules
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ kernel_modules }}"
+  become: true
+
+- name: Remove docker socket overrides
+  ansible.builtin.file:
+    path: /etc/systemd/system/docker.socket.d/socket-overrides.conf
+    state: absent
+  notify: restart docker
+  become: true
+
+- name: Install Docker
+  ansible.builtin.include_tasks: docker_setup.yml
+
+- name: Setup APT repositories
+  ansible.builtin.include_tasks: repositories.yml
+
+- name: Install base packages
+  ansible.builtin.package:
+    name: "{{ labeler_packages }}"
+    state: present
+  become: true
+
+- name: Install AAD packages
+  ansible.builtin.package:
+    name: "{{ aad_packages }}"
+    state: present
+  become: true
+
+- name: Setup AAD authentication
+  ansible.builtin.include_tasks: aad_setup.yml
+
+- name: Setup NVIDIA drivers and CUDA
+  ansible.builtin.include_tasks: nvidia_setup.yml
+
+- name: Setup development tools
+  ansible.builtin.include_tasks: development_tools.yml
+
+- name: Setup Vault integration
+  ansible.builtin.include_tasks: vault_setup.yml
+
+- name: Setup NFS mounts
+  ansible.builtin.include_tasks: nfs_setup.yml
+
+- name: Setup GNOME desktop configuration
+  ansible.builtin.include_tasks: gnome_setup.yml
+
+- name: Setup system maintenance
+  ansible.builtin.include_tasks: system_maintenance.yml
+
+- name: Setup Git repository access
+  ansible.builtin.include_tasks: git_setup.yml
+
+- name: Setup boundary connectivity
+  ansible.builtin.include_tasks: boundary_setup.yml
+
+- name: Configure PAM authentication
+  ansible.builtin.command:
+    cmd: /usr/sbin/pam-auth-update --enable mkhomedir
+    creates: /var/lib/puppet-exec/pam-auth-update
+  become: true

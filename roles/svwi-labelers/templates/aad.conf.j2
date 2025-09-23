@@ -1,0 +1,28 @@
+### required values
+## See https://docs.microsoft.com/en-us/azure/active-directory/develop/howto-create-service-principal-portal
+## for more information on how to set up an Azure AD app.
+# tenant_id = xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+# app_id = yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy
+tenant_id = {{ aad_tenant_id }}
+app_id = {{ aad_app_id }}
+
+
+### optional values (defaults)
+offline_credentials_expiration = {{ aad_offline_credentials_expiration }}
+                                      ; set to 0 to prevent old users from being cleaned and allow offline authentication for an undetermined amount of time
+                                      ; set to a negative value to prevent offline authentication
+# homedir = /home/%f ; home directory pattern for the user, the following mapping applies:
+#                    ; %f - full username
+#                    ; %U - UID
+#                    ; %l - first char of username
+#                    ; %u - username without domain
+#                    ; %d - domain
+shell = {{ aad_shell }} ; default shell for the user
+homedir = {{ aad_homedir }}
+### overriding values for a specific domain, every value inside a section is optional
+# [domain.com]
+# tenant_id = aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+# app_id = bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb
+# offline_credentials_expiration = 30
+# homedir = /home/domain.com/%u
+# shell = /bin/zsh

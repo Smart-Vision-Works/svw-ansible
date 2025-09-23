@@ -1,0 +1,39 @@
+---
+# Git Repository Access Setup
+- name: Create root SSH directory
+  ansible.builtin.file:
+    path: /root/.ssh
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+  become: true
+
+- name: Configure SSH for GitHub access
+  ansible.builtin.copy:
+    src: ssh-config
+    dest: /root/.ssh/config
+    owner: root
+    group: root
+    mode: '0600'
+  become: true
+
+- name: Install GitHub SSH private key
+  ansible.builtin.copy:
+    content: "{{ labeling_pipeline_github_key }}"
+    dest: /root/.ssh/labeling_pipeline
+    owner: root
+    group: root
+    mode: '0400'
+  become: true
+  when: labeling_pipeline_github_key | length > 0
+
+- name: Clone model development repository
+  ansible.builtin.git:
+    repo: "{{ model_development_repo }}"
+    dest: /opt/model_development
+    key_file: /root/.ssh/labeling_pipeline
+    accept_hostkey: true
+    force: true
+  become: true
+  when: labeling_pipeline_github_key | length > 0

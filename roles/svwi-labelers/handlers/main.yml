@@ -1,0 +1,35 @@
+---
+- name: restart docker
+  ansible.builtin.systemd:
+    name: docker
+    state: restarted
+    daemon_reload: true
+  become: true
+
+- name: restart boundary-connect
+  ansible.builtin.systemd:
+    name: boundary-connect
+    state: restarted
+    daemon_reload: true
+  become: true
+
+- name: update dconf
+  ansible.builtin.command:
+    cmd: /usr/bin/dconf update
+  become: true
+
+- name: reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+  become: true
+
+- name: restart ssh
+  ansible.builtin.systemd:
+    name: ssh
+    state: restarted
+  become: true
+
+- name: update ca certificates
+  ansible.builtin.command:
+    cmd: update-ca-certificates
+  become: true

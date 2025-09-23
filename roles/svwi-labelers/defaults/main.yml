@@ -1,0 +1,67 @@
+---
+# NVIDIA Driver and CUDA Configuration
+nvidia_driver_version: "565"
+nvidia_cuda_version: "565"
+
+# AAD (Azure Active Directory) Configuration
+aad_tenant_id: "{{ vault.aad_tenant_id | default('') }}"
+aad_app_id: "{{ vault.aad_app_id | default('') }}"
+aad_offline_credentials_expiration: 90
+aad_shell: "/bin/bash"
+aad_homedir: "/home/%f"
+
+# Git and SSH Configuration
+labeling_pipeline_github_key: "{{ vault.labeling_pipeline_github_key | default('') }}"
+model_development_repo: "git@github.com:Smart-Vision-Works/model_development.git"
+
+# Vault Configuration
+vault_addr: "https://vault1.svwi.us:8200"
+
+# Container Registry Configuration
+insecure_registries:
+  - "10.10.4.5:5003"
+  - "10.10.4.6:5003"
+  - "10.8.7.248:5555"
+
+# Docker Images
+labeling_pipeline_image: "10.8.7.248:5555/labeling-pipeline/base:latest"
+
+# MongoDB Configuration  
+mongodb_compass_version: "1.45.0"
+
+# NFS Mount Configuration
+nfs_mounts:
+  - name: shared
+    src: "10.10.1.50:/mnt/tank/shared"
+    path: "/auto/shared"
+    opts: "soft,intr"
+  - name: ds
+    src: "10.10.1.51:/mnt/tank/ds"  
+    path: "/auto/ds"
+    opts: "soft"
+  - name: shared_ro
+    src: "10.8.7.246:/mnt/tank/shared"
+    path: "/auto/shared_ro"
+    opts: "soft,intr"
+
+# Boundary Configuration
+boundary_addr: "https://45fd7f1b-a8f8-4234-aead-1bd82ed4f05a.boundary.hashicorp.cloud/"
+boundary_auth_method_id: "amoidc_FQcYFJBwXu"
+boundary_target_id: "ttcp_1zaoZ3hE22"
+
+# System Configuration
+patch_system_time: "17:30"
+unattended_upgrades_enabled: true
+
+# GNOME Configuration
+gnome_favorite_apps:
+  - "microsoft-edge.desktop"
+  - "org.gnome.Nautilus.desktop" 
+  - "org.gnome.Terminal.desktop"
+
+# Micromamba Configuration
+micromamba_path: "/opt/svw_tools/micromamba"
+micromamba_enabled: false  # Currently commented out in Puppet
+
+# Chrome Management
+chrome_management_enabled: false  # TODO item in Puppet

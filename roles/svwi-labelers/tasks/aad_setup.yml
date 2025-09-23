@@ -1,0 +1,31 @@
+---
+# Azure Active Directory Authentication Setup
+- name: Configure AAD authentication
+  ansible.builtin.template:
+    src: aad.conf.j2
+    dest: /etc/aad.conf
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  become: true
+
+- name: Enable PAM mkhomedir module
+  ansible.builtin.command:
+    cmd: /usr/sbin/pam-auth-update --enable mkhomedir
+    creates: /var/lib/ansible-exec/pam-auth-update
+  become: true
+
+- name: Create ansible-exec directory
+  ansible.builtin.file:
+    path: /var/lib/ansible-exec
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Mark PAM auth update as completed
+  ansible.builtin.file:
+    path: /var/lib/ansible-exec/pam-auth-update
+    state: touch
+    mode: '0644'
+  become: true

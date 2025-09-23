@@ -1,0 +1,59 @@
+---
+# Development Tools Installation
+- name: Install development packages
+  ansible.builtin.package:
+    name: "{{ development_packages }}"
+    state: present
+  become: true
+
+- name: Download MongoDB Compass
+  ansible.builtin.get_url:
+    url: "{{ downloads.mongodb_compass }}"
+    dest: "/tmp/mongodb-compass_{{ mongodb_compass_version }}_amd64.deb"
+  become: true
+
+- name: Install MongoDB Compass
+  ansible.builtin.apt:
+    deb: "/tmp/mongodb-compass_{{ mongodb_compass_version }}_amd64.deb"
+    state: present
+  become: true
+
+- name: Setup micromamba (if enabled)
+  block:
+    - name: Create micromamba directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - /opt/svw_tools
+        - "{{ micromamba_path }}"
+      become: true
+
+    - name: Download micromamba
+      ansible.builtin.get_url:
+        url: https://micro.mamba.pm/api/micromamba/linux-64/latest
+        dest: /tmp/micromamba.tar.bz2
+      become: true
+
+    - name: Extract micromamba
+      ansible.builtin.unarchive:
+        src: /tmp/micromamba.tar.bz2
+        dest: "{{ micromamba_path }}"
+        remote_src: true
+        creates: "{{ micromamba_path }}/bin/micromamba"
+      become: true
+
+    - name: Initialize micromamba shell
+      ansible.builtin.command:
+        cmd: "{{ micromamba_path }}/bin/micromamba shell init -s bash -p {{ micromamba_path }}"
+        creates: "{{ micromamba_path }}/etc/profile.d/micromamba.sh"
+      become: true
+
+    - name: Copy custom bashrc with micromamba
+      ansible.builtin.copy:
+        src: bash.bashrc
+        dest: /etc/bash.bashrc
+        backup: true
+      become: true
+  when: micromamba_enabled | bool

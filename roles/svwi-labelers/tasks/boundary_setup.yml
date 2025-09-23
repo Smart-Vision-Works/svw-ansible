@@ -1,0 +1,20 @@
+---
+# Boundary Connectivity Setup
+- name: Copy boundary connect service file
+  ansible.builtin.copy:
+    src: boundary-connect.service
+    dest: /etc/systemd/system/boundary-connect.service
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify:
+    - reload systemd
+    - restart boundary-connect
+
+- name: Enable boundary connect service
+  ansible.builtin.systemd:
+    name: boundary-connect
+    enabled: true
+    daemon_reload: true
+  become: true

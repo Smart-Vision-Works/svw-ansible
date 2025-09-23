@@ -1,0 +1,14 @@
+#!/bin/sh
+set -ex
+if which dnf 2>/dev/null
+then
+    sudo dnf update -y
+    sudo flatpak update --system -y
+    flatpak update --user -y
+else
+    sudo apt-get update -y
+    sudo apt-get dist-upgrade -y
+    sudo snap refresh
+fi
+
+reboot

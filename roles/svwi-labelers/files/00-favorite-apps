@@ -1,0 +1,2 @@
+[org/gnome/shell]
+favorite-apps = ['microsoft-edge.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Terminal.desktop']

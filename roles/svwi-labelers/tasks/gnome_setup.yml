@@ -1,0 +1,72 @@
+---
+# GNOME Desktop Environment Configuration
+- name: Create dconf profile directory
+  ansible.builtin.file:
+    path: /etc/dconf/profile
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Create dconf profile for users
+  ansible.builtin.copy:
+    src: /etc/dconf/profile/ibus
+    dest: /etc/dconf/profile/user
+    remote_src: true
+  become: true
+
+- name: Create dconf database directory
+  ansible.builtin.file:
+    path: /etc/dconf/db/ibus.d
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Configure GNOME favorite applications
+  ansible.builtin.copy:
+    src: 00-favorite-apps
+    dest: /etc/dconf/db/ibus.d/00-favorite-apps
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: update dconf
+
+- name: Create dconf locks directory
+  ansible.builtin.file:
+    path: /etc/dconf/db/ibus.d/locks
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+
+- name: Configure dconf locks for favorite apps
+  ansible.builtin.copy:
+    src: favorite-apps
+    dest: /etc/dconf/db/ibus.d/locks/favorite-apps
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: update dconf
+
+- name: Create GNOME settings directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /etc/skel/.config
+    - /etc/gnome-settings-daemon
+    - /etc/gnome-settings-daemon/xrandr
+  become: true
+
+- name: Configure monitor settings (if displays fact available)
+  ansible.builtin.template:
+    src: monitors.xml.j2
+    dest: /etc/gnome-settings-daemon/xrandr/monitors.xml
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  when: ansible_facts['displays'] is defined and ansible_facts['displays'] | length >= 2

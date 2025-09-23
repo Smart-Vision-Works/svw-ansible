@@ -1,0 +1,43 @@
+---
+# NVIDIA Drivers and CUDA Setup
+- name: Download NVIDIA driver installer (optional/backup)
+  ansible.builtin.get_url:
+    url: "{{ downloads.nvidia_driver }}"
+    dest: /tmp/NVIDIA-Linux-x86_64-530.41.03.run
+    mode: '0755'
+  become: true
+
+- name: Install NVIDIA CUDA drivers
+  ansible.builtin.package:
+    name: "{{ nvidia_packages }}"
+    state: latest
+  become: true
+  notify: restart docker
+
+- name: Install nvidia-docker2
+  ansible.builtin.package:
+    name: nvidia-docker2
+    state: present
+  become: true
+  notify: restart docker
+
+- name: Configure Docker for NVIDIA runtime
+  ansible.builtin.copy:
+    src: docker-daemon.json
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  notify: restart docker
+  become: true
+
+- name: Copy Zabbix NVIDIA monitoring parameters (if needed)
+  ansible.builtin.copy:
+    src: userparameter_nvidia-smi.conf.linux
+    dest: /etc/zabbix/zabbix_agentd.d/userparameter_nvidia-smi.conf
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  when: "'zabbix-agent' in ansible_facts.packages"

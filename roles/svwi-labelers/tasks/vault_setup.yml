@@ -1,0 +1,32 @@
+---
+# Vault Integration Setup
+- name: Install Vault root CA certificate
+  ansible.builtin.copy:
+    src: vault-root.crt
+    dest: /usr/local/share/ca-certificates/vault-root.crt
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: update ca certificates
+
+- name: Update CA certificates
+  ansible.builtin.command:
+    cmd: update-ca-certificates
+  become: true
+
+- name: Create Vault tools directory
+  ansible.builtin.file:
+    path: /opt/vault
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Copy MongoDB credentials script
+  ansible.builtin.copy:
+    src: getMongoCreds.sh
+    dest: /opt/vault/getMongoCreds.sh
+    owner: root
+    group: root
+    mode: '0755'
+  become: true

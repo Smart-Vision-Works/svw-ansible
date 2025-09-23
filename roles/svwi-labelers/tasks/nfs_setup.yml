@@ -1,0 +1,38 @@
+---
+# NFS Mount Setup
+- name: Create NFS mount directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: '0755'
+  loop: "{{ nfs_mounts }}"
+  become: true
+
+- name: Configure NFS mounts
+  ansible.posix.mount:
+    path: "{{ item.path }}"
+    src: "{{ item.src }}"
+    fstype: nfs
+    opts: "{{ item.opts }}"
+    boot: true
+    state: mounted
+  loop: "{{ nfs_mounts }}"
+  become: true
+
+- name: Copy mount check script
+  ansible.builtin.copy:
+    src: checkMount.sh
+    dest: /usr/local/bin/checkMount.sh
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+
+- name: Add mount check to cron (optional)
+  ansible.builtin.cron:
+    name: "Check NFS mounts"
+    minute: "*/5"
+    job: "/usr/local/bin/checkMount.sh"
+    user: root
+  become: true
+  when: false  # Disabled by default, can be enabled if needed

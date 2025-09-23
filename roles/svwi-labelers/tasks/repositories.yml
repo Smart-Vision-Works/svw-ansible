@@ -1,0 +1,140 @@
+---
+# APT Repository Setup
+- name: Create keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+  become: true
+
+# MongoDB Repository
+- name: Download MongoDB GPG key
+  ansible.builtin.get_url:
+    url: "{{ apt_repositories.mongodb.key_url }}"
+    dest: /tmp/mongodb.asc
+  become: true
+
+- name: Convert MongoDB key to GPG format
+  ansible.builtin.shell:
+    cmd: "gpg --dearmor -o {{ apt_repositories.mongodb.key_file }} < /tmp/mongodb.asc"
+    creates: "{{ apt_repositories.mongodb.key_file }}"
+  become: true
+
+- name: Add MongoDB repository
+  ansible.builtin.apt_repository:
+    repo: "{{ apt_repositories.mongodb.repo }}"
+    state: present
+    update_cache: false
+  become: true
+
+# NVIDIA Container Toolkit Repository
+- name: Download NVIDIA Container Toolkit GPG key
+  ansible.builtin.get_url:
+    url: "{{ apt_repositories.nvidia_container_toolkit.key_url }}"
+    dest: /tmp/nvidia-container-toolkit.asc
+  become: true
+
+- name: Convert NVIDIA Container Toolkit key to GPG format
+  ansible.builtin.shell:
+    cmd: "gpg --dearmor -o {{ apt_repositories.nvidia_container_toolkit.key_file }} < /tmp/nvidia-container-toolkit.asc"
+    creates: "{{ apt_repositories.nvidia_container_toolkit.key_file }}"
+  become: true
+
+- name: Add NVIDIA Container Toolkit repository
+  ansible.builtin.apt_repository:
+    repo: "{{ apt_repositories.nvidia_container_toolkit.repo }}"
+    state: present
+    update_cache: false
+  become: true
+
+# NVIDIA CUDA Repository
+- name: Download NVIDIA CUDA GPG key
+  ansible.builtin.get_url:
+    url: "{{ apt_repositories.nvidia_cuda.key_url }}"
+    dest: /tmp/nvidia-cuda.asc
+  become: true
+
+- name: Convert NVIDIA CUDA key to GPG format
+  ansible.builtin.shell:
+    cmd: "gpg --dearmor -o {{ apt_repositories.nvidia_cuda.key_file }} < /tmp/nvidia-cuda.asc"
+    creates: "{{ apt_repositories.nvidia_cuda.key_file }}"
+  become: true
+
+- name: Add NVIDIA CUDA repository
+  ansible.builtin.apt_repository:
+    repo: "{{ apt_repositories.nvidia_cuda.repo }}"
+    state: present
+    update_cache: false
+  become: true
+
+# Microsoft Repository (shared key for both repositories)
+- name: Download Microsoft GPG key
+  ansible.builtin.get_url:
+    url: "{{ apt_repositories.microsoft.key_url }}"
+    dest: /tmp/microsoft.asc
+  become: true
+
+- name: Convert Microsoft key to GPG format
+  ansible.builtin.shell:
+    cmd: "gpg --dearmor -o {{ apt_repositories.microsoft.key_file }} < /tmp/microsoft.asc"
+    creates: "{{ apt_repositories.microsoft.key_file }}"
+  become: true
+
+- name: Add Microsoft Visual Studio Code repository
+  ansible.builtin.apt_repository:
+    repo: "{{ apt_repositories.microsoft.repo }}"
+    state: present
+    update_cache: false
+  become: true
+
+- name: Add Microsoft Ubuntu repository
+  ansible.builtin.apt_repository:
+    repo: "{{ apt_repositories.microsoft_ubuntu.repo }}"
+    state: present
+    update_cache: false
+  become: true
+
+# Google Cloud Repository
+- name: Download Google Cloud GPG key
+  ansible.builtin.get_url:
+    url: "{{ apt_repositories.google_cloud.key_url }}"
+    dest: /tmp/google-cloud.asc
+  become: true
+
+- name: Convert Google Cloud key to GPG format
+  ansible.builtin.shell:
+    cmd: "gpg --dearmor -o {{ apt_repositories.google_cloud.key_file }} < /tmp/google-cloud.asc"
+    creates: "{{ apt_repositories.google_cloud.key_file }}"
+  become: true
+
+- name: Add Google Cloud SDK repository
+  ansible.builtin.apt_repository:
+    repo: "{{ apt_repositories.google_cloud.repo }}"
+    state: present
+    update_cache: false
+  become: true
+
+# Google Chrome Repository
+- name: Download Google Chrome GPG key
+  ansible.builtin.get_url:
+    url: "{{ apt_repositories.google_chrome.key_url }}"
+    dest: /tmp/google-chrome.asc
+  become: true
+
+- name: Convert Google Chrome key to GPG format
+  ansible.builtin.shell:
+    cmd: "gpg --dearmor -o {{ apt_repositories.google_chrome.key_file }} < /tmp/google-chrome.asc"
+    creates: "{{ apt_repositories.google_chrome.key_file }}"
+  become: true
+
+- name: Add Google Chrome repository
+  ansible.builtin.apt_repository:
+    repo: "{{ apt_repositories.google_chrome.repo }}"
+    state: present
+    update_cache: false
+  become: true
+
+- name: Update APT cache after adding all repositories
+  ansible.builtin.apt:
+    update_cache: true
+  become: true

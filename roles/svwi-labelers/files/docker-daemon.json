@@ -1,0 +1,16 @@
+{
+    "features": {
+        "buildkit": true
+    },
+    "runtimes": {
+        "nvidia": {
+            "path": "/usr/bin/nvidia-container-runtime",
+            "runtimeArgs": []
+        }
+    },
+    "insecure-registries": [
+        "10.10.4.5:5003",
+        "10.10.4.6:5003",
+        "10.8.7.248:5555"
+    ]
+}

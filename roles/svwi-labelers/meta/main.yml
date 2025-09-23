@@ -1,0 +1,27 @@
+---
+galaxy_info:
+  author: SVW Infrastructure Team
+  description: GPU-enabled labeling station configuration for machine learning workloads
+  company: Smart Vision Works
+  license: MIT
+  min_ansible_version: '2.14'
+  platforms:
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - gpu
+    - nvidia
+    - docker
+    - authentication
+    - development
+
+dependencies:
+  - role: svwi-basenode
+  - role: svwi-users
+    vars:
+      manage_admins: true
+      manage_service: true  
+      manage_data: true
+      manage_labelers: true

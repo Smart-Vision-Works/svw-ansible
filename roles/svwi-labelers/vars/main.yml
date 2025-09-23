@@ -1,0 +1,77 @@
+---
+# Package Lists
+labeler_packages:
+  - mongodb-org-shell
+  - imagemagick
+  - nfs-common
+  - ssh
+  - libuser
+  - boundary-desktop
+  - boundary
+  - dconf-cli
+  - ibus
+  - unattended-upgrades
+
+aad_packages:
+  - libpam-aad
+  - libnss-aad
+
+nvidia_packages:
+  - "cuda-drivers-{{ nvidia_cuda_version }}"
+  - "nvidia-driver-{{ nvidia_driver_version }}"
+  - "nvidia-utils-{{ nvidia_driver_version }}"
+  - "nvidia-kernel-common-{{ nvidia_driver_version }}"
+  - nvidia-docker2
+
+development_packages:
+  - google-cloud-cli
+  - code
+  - google-chrome-stable
+  - vault
+
+# APT Repository Configuration
+apt_repositories:
+  mongodb:
+    repo: "deb [arch={{ ansible_architecture }} signed-by=/etc/apt/keyrings/mongodb.gpg] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse"
+    key_url: "https://www.mongodb.org/static/pgp/server-8.0.asc"
+    key_file: "/etc/apt/keyrings/mongodb.gpg"
+  
+  nvidia_container_toolkit:
+    repo: "deb [arch={{ ansible_architecture }} signed-by=/etc/apt/keyrings/nvidia-container-toolkit.gpg] https://nvidia.github.io/libnvidia-container/stable/deb/{{ ansible_architecture }} /"
+    key_url: "https://nvidia.github.io/libnvidia-container/gpgkey"
+    key_file: "/etc/apt/keyrings/nvidia-container-toolkit.gpg"
+  
+  nvidia_cuda:
+    repo: "deb [arch={{ ansible_architecture }} signed-by=/etc/apt/keyrings/nvidia-cuda.gpg] https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64 /"
+    key_url: "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/3bf863cc.pub"
+    key_file: "/etc/apt/keyrings/nvidia-cuda.gpg"
+  
+  microsoft:
+    repo: "deb [arch={{ ansible_architecture }} signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main"
+    key_url: "https://packages.microsoft.com/keys/microsoft.asc"
+    key_file: "/etc/apt/keyrings/microsoft.gpg"
+  
+  microsoft_ubuntu:
+    repo: "deb [arch={{ ansible_architecture }} signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/ubuntu/{{ ansible_distribution_version }}/prod noble main"
+    key_url: "https://packages.microsoft.com/keys/microsoft.asc"
+    key_file: "/etc/apt/keyrings/microsoft.gpg"
+  
+  google_cloud:
+    repo: "deb [arch={{ ansible_architecture }} signed-by=/etc/apt/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main"
+    key_url: "https://packages.cloud.google.com/apt/doc/apt-key.gpg"
+    key_file: "/etc/apt/keyrings/cloud.google.gpg"
+  
+  google_chrome:
+    repo: "deb [arch={{ ansible_architecture }} signed-by=/etc/apt/keyrings/google-chrome-stable.gpg] http://dl.google.com/linux/chrome/deb/ stable main"
+    key_url: "https://dl.google.com/linux/linux_signing_key.pub"
+    key_file: "/etc/apt/keyrings/google-chrome-stable.gpg"
+
+# Download URLs
+downloads:
+  mongodb_compass: "https://downloads.mongodb.com/compass/mongodb-compass_{{ mongodb_compass_version }}_amd64.deb"
+  nvidia_driver: "https://us.download.nvidia.com/XFree86/Linux-x86_64/530.41.03/NVIDIA-Linux-x86_64-530.41.03.run"
+
+# Kernel Modules to Load
+kernel_modules:
+  - bridge
+  - br_netfilter

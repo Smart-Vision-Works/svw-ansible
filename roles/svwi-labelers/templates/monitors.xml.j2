@@ -1,0 +1,41 @@
+<monitors version="2">
+  <configuration>
+    <logicalmonitor>
+      <x>0</x>
+      <y>1080</y>
+      <scale>1</scale>
+      <primary>yes</primary>
+      <monitor>
+        <monitorspec>
+          <connector>{{ ansible_facts['displays'][0]['id'] }}</connector>
+          <vendor>SPT</vendor>
+          <product>Sceptre F24</product>
+          <serial>0x00000001</serial>
+        </monitorspec>
+        <mode>
+          <width>{{ ansible_facts['displays'][0]['x'] }}</width>
+          <height>{{ ansible_facts['displays'][0]['y'] }}</height>
+          <rate>60</rate>
+        </mode>
+      </monitor>
+    </logicalmonitor>
+    <logicalmonitor>
+      <x>0</x>
+      <y>0</y>
+      <scale>1</scale>
+      <monitor>
+        <monitorspec>
+          <connector>{{ ansible_facts['displays'][1]['id'] }}</connector>
+          <vendor>SPT</vendor>
+          <product>Sceptre E24</product>
+          <serial>0x00000001</serial>
+        </monitorspec>
+        <mode>
+          <width>{{ ansible_facts['displays'][1]['x'] }}</width>
+          <height>{{ ansible_facts['displays'][1]['y'] }}</height>
+          <rate>60</rate>
+        </mode>
+      </monitor>
+    </logicalmonitor>
+  </configuration>
+</monitors>
