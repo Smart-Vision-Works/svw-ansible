@@ -4,6 +4,15 @@
 #     msg: "buddyip is not defined or is empty"
 #   when: buddyip is not defined or buddyip == ""
 
+- name: Install Docker and Docker Compose inside test container for DinD
+  ansible.builtin.apt:
+    name:
+      - docker.io
+      - docker-compose
+    state: present
+    update_cache: yes
+  when: ansible_virtualization_type == "docker"
+
 - name: Ensure required packages are installed
   ansible.builtin.apt:
     name:
@@ -88,6 +97,7 @@
   ansible.builtin.service:
     name: systemd-resolved
     enabled: no
+  when: ansible_virtualization_type != "docker"
 
 - name: Set /etc/resolv.conf to dummy value for DNS container setup
   ansible.builtin.copy:
