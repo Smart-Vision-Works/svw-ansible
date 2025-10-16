@@ -1,0 +1,8 @@
+[labelers]
+test-labeler ansible_host=10.10.16.125 ansible_user=jhansen
+
+[labelers:vars]
+# WARNING: Disabling StrictHostKeyChecking is insecure; use only in test environments.
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+ansible_become=yes
+ansible_become_method=sudo

@@ -11,7 +11,6 @@
     state: present
   loop: "{{ kernel_modules }}"
   become: true
-  when: ansible_facts['virtualization_type'] != 'docker'
 
 - name: Remove docker socket overrides
   ansible.builtin.file:
@@ -34,18 +33,15 @@
     name: "{{ aad_packages }}"
     state: present
   become: true
+  when: ansible_facts['virtualization_type'] != 'docker'
 
 - name: Setup AAD authentication
   ansible.builtin.include_tasks: aad_setup.yml
 
 - name: Setup NVIDIA drivers and CUDA
   ansible.builtin.include_tasks: nvidia_setup.yml
-  when: ansible_facts['virtualization_type'] != 'docker'
-
-- name: Install Docker
   ansible.builtin.include_tasks: docker_setup.yml
   when: ansible_facts['virtualization_type'] != 'docker'
-
 - name: Setup development tools
   ansible.builtin.include_tasks: development_tools.yml
 
@@ -53,10 +49,9 @@
   ansible.builtin.include_tasks: vault_setup.yml
 
 - name: Setup NFS mounts
+- name: Setup NFS mounts
   ansible.builtin.include_tasks: nfs_setup.yml
   when: ansible_facts['virtualization_type'] != 'docker'
-
-- name: Setup GNOME desktop configuration
   ansible.builtin.include_tasks: gnome_setup.yml
 
 - name: Setup system maintenance
@@ -67,10 +62,9 @@
   when: labeling_pipeline_github_key | length > 0
 
 - name: Setup boundary connectivity
+- name: Setup boundary connectivity
   ansible.builtin.include_tasks: boundary_setup.yml
   when: ansible_facts['virtualization_type'] != 'docker'
-
-- name: Configure PAM authentication
   ansible.builtin.command:
     cmd: /usr/sbin/pam-auth-update --enable mkhomedir
     creates: /var/lib/ansible-exec/pam-auth-update

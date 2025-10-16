@@ -1,0 +1,13 @@
+---
+- name: Deploy DNS servers
+  hosts: dns-servers
+  tasks:
+    - ansible.builtin.include_vars:
+        file: vault.yml
+        name: vault
+    - ansible.builtin.include_role:
+        name: svwi-users
+    - ansible.builtin.include_role:
+        name: svwi-basenode
+    - ansible.builtin.include_role:
+        name: svwi-dns

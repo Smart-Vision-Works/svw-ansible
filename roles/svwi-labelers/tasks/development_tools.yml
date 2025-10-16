@@ -5,18 +5,21 @@
     name: "{{ development_packages }}"
     state: present
   become: true
+  ignore_errors: "{{ ansible_facts['virtualization_type'] == 'docker' }}"
 
 - name: Download MongoDB Compass
   ansible.builtin.get_url:
     url: "{{ downloads.mongodb_compass }}"
     dest: "/tmp/mongodb-compass_{{ mongodb_compass_version }}_amd64.deb"
   become: true
+  when: ansible_facts['virtualization_type'] != 'docker'
 
 - name: Install MongoDB Compass
   ansible.builtin.apt:
     deb: "/tmp/mongodb-compass_{{ mongodb_compass_version }}_amd64.deb"
     state: present
   become: true
+  when: ansible_facts['virtualization_type'] != 'docker'
 
 - name: Setup micromamba (if enabled)
   block:

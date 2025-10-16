@@ -1,0 +1,17 @@
+---
+- name: Test SVWI Labelers Role on Hardware
+  hosts: labelers
+  become: yes
+  gather_facts: yes
+  
+  # roles:
+  #   - svwi-labelers
+  tasks:
+    - name: run the role
+      include_role:
+        name: svwi-labelers
+
+  post_tasks:
+    - name: Display test completion message
+      debug:
+        msg: "SVWI Labelers role deployment completed successfully on {{ inventory_hostname }}"
