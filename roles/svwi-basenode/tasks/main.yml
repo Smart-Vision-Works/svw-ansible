@@ -1,6 +1,8 @@
 - name: Update apt cache
   ansible.builtin.apt:
     update_cache: yes
+  become: yes
+
 - name: Install base packages
   ansible.builtin.package:
     name:
@@ -19,11 +21,13 @@
       - software-properties-common
       - ubuntu-advantage-tools
     state: present
+  become: yes
 
 - name: Set default editor to Neovim
   community.general.alternatives:
     name: editor
     path: /usr/bin/nvim
+  become: yes
 
 - name: Get SVW package repo key
   ansible.builtin.get_url:
@@ -31,6 +35,7 @@
     dest: '/usr/share/keyrings/svw.asc'
     mode: '0644'
     force: yes
+  become: yes
   register: svw_key_result
 
 - name: Add SVW package repo key
@@ -42,6 +47,7 @@
         --dearmor
         -o /usr/share/keyrings/svw.gpg
         /usr/share/keyrings/svw.asc
+  become: yes
   when: svw_key_result.changed
   #creates: '/usr/share/keyrings/svw.gpg'
 
@@ -51,11 +57,13 @@
     state: present
     filename: svw
     update_cache: yes
+  become: yes
 
 - name: Install Landscape client
   ansible.builtin.package:
     name: landscape-client
     state: latest
+  become: yes
 
 - name: Configure Landscape client
   ansible.builtin.template:
@@ -63,7 +71,7 @@
     dest: '/etc/landscape/client.conf'
     owner: 'landscape'
     mode: '0600'
-
+  become: yes
   # notify: Restart Landscape client
 
 - name: Add landcape-client configuration file
@@ -73,6 +81,7 @@
     owner: 'root'
     group: 'root'
     mode: '0644'
+  become: yes
   register: landscape_client_config_result
 
 # - name: Get Landscape service running
@@ -87,6 +96,7 @@
     state: present
     update_cache: yes
     force: yes
+  become: yes
   register: sentinelagent_result
 
 # - name: Install SVW package repo
@@ -105,6 +115,7 @@
     owner: root
     group: root
     mode: '0644'
+  become: yes
   notify: Update apt cache
 
 - name: Add SentinelOne management token
@@ -112,6 +123,7 @@
     /opt/sentinelone/bin/sentinelctl management token set {{ sentinel_token }}
   args:
     warn: false
+  become: yes
   register: sentinel_token_result
   when:
     - sentinel_token is defined
@@ -124,6 +136,7 @@
     owner: root
     group: root
     mode: '0644'
+  become: yes
   loop:
     - e5
     - e6
@@ -139,6 +152,7 @@
     /usr/bin/pro attach {{ ubuntu_pro_key }}
   args:
     warn: false
+  become: yes
   when:
     - ubuntu_pro_key is defined
     - landscape_client_config_result.changed

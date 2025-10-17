@@ -11,6 +11,7 @@
     state: present
   loop: "{{ kernel_modules }}"
   become: true
+  when: ansible_facts['virtualization_type'] != 'docker'
 
 - name: Remove docker socket overrides
   ansible.builtin.file:
@@ -49,7 +50,6 @@
   ansible.builtin.include_tasks: vault_setup.yml
 
 - name: Setup NFS mounts
-- name: Setup NFS mounts
   ansible.builtin.include_tasks: nfs_setup.yml
   when: ansible_facts['virtualization_type'] != 'docker'
   ansible.builtin.include_tasks: gnome_setup.yml
@@ -61,7 +61,6 @@
   ansible.builtin.include_tasks: git_setup.yml
   when: labeling_pipeline_github_key | length > 0
 
-- name: Setup boundary connectivity
 - name: Setup boundary connectivity
   ansible.builtin.include_tasks: boundary_setup.yml
   when: ansible_facts['virtualization_type'] != 'docker'

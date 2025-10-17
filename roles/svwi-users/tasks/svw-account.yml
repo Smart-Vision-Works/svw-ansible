@@ -2,6 +2,7 @@
   ansible.builtin.group:
     name: "{{ item.name }}"
     state: present
+  become: yes
   when: (item.ensure is not defined) or (item.ensure != 'absent')
 
 - name: Make the {{ item.name }} user
@@ -14,6 +15,7 @@
     create_home: true
     #local: true
     password: "{{ item.password_hash | default('') }}"
+  become: yes
   when: item.ensure is not defined or item.ensure != 'absent'
 
 - name: Add SSH keys to authorized_keys for {{ item.name }}
@@ -21,6 +23,7 @@
     user: "{{ item.name }}"
     key: "{{ item.ssh_keys }}"
     state: present
+  become: yes
   when:
     - item.ssh_keys is defined
     - item.ensure is not defined or item.ensure != 'absent'
@@ -31,15 +34,16 @@
     state: absent
     remove: true
     force: true
+  become: yes
   when:
     - item.ensure is defined
     - item.ensure == 'absent'
-
 
 - name: Delete group for {{ item.name }} if desired
   ansible.builtin.group:
     name: "{{ item.name }}"
     state: absent
+  become: yes
   when:
     - item.ensure is defined
     - item.ensure == 'absent'

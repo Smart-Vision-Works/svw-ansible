@@ -11,6 +11,7 @@
       - docker-compose
     state: present
     update_cache: yes
+  become: yes
   when: ansible_virtualization_type == "docker"
 
 - name: Ensure required packages are installed
@@ -21,9 +22,19 @@
       - git
       - jq
     state: present
-    update_cache: yes
+    update_cache: false
+  become: yes
 
 # - name: Install dependencies on Debian/Ubuntu
+- name: Ensure Docker is installed
+  ansible.builtin.apt:
+    name: docker.io
+    state: present
+    update_cache: yes
+  become: yes
+  when: ansible_virtualization_type != "docker"
+
+- name: Ensure required packages are installed
 #   ansible.builtin.apt:
 #     name:
 #       - curl
@@ -41,6 +52,7 @@
     owner: root
     group: root
     mode: '0700'
+  become: yes
 
 - name: Copy SSH config for Github
   ansible.builtin.copy:
@@ -49,6 +61,7 @@
     owner: root
     group: root
     mode: '0600'
+  become: yes
 
 - name: Ensure SSH key for github deploy exists
   ansible.builtin.copy:
@@ -57,6 +70,7 @@
     owner: root
     group: root
     mode: '0400'
+  become: yes
   when: dnsgithubkey != ""
 
 - name: Clone PowerDNS management repo
@@ -67,6 +81,7 @@
     accept_hostkey: yes
     key_file: /root/.ssh/dns
     force: yes
+  become: yes
   when: dnsgithubkey != ""
 
 
@@ -77,6 +92,7 @@
     owner: root
     group: root
     mode: '0600'
+  become: yes
 
 - name: Copy database initialization script
   ansible.builtin.copy:
@@ -85,6 +101,7 @@
     owner: root
     group: root
     mode: '0644'
+  become: yes
 
 - name: Set server-id in server.cnf
   ansible.builtin.lineinfile:
@@ -92,11 +109,13 @@
     regexp: '^server-id'
     line: "server-id = {{ sqlid }}"
     create: yes
+  become: yes
 
 - name: Ensure systemd-resolved is disabled
   ansible.builtin.service:
     name: systemd-resolved
     enabled: no
+  become: yes
   when: ansible_virtualization_type != "docker"
 
 - name: Set /etc/resolv.conf to dummy value for DNS container setup
@@ -104,6 +123,15 @@
     content: "nameserver 0.0.0.0"
     dest: /etc/resolv.conf
     force: yes
+- name: Enable and start Docker service
+  ansible.builtin.service:
+    name: docker
+    enabled: yes
+    state: started
+  when: ansible_virtualization_type != "docker"
+
+- name: Enable and start PowerDNS docker-compose service
+  become: yes
   when: ansible_virtualization_type != "docker"
 # TODO: Remove this block when DNS container setup is finalized and testing is complete
 # Remove or update this when deploying to production environments.
@@ -115,6 +143,7 @@
     owner: root
     group: root
     mode: '0644'
+  become: yes
   notify: Reload systemd
 
 - name: Enable and start PowerDNS docker-compose service
@@ -123,6 +152,7 @@
     enabled: yes
     state: started
     daemon_reload: yes
+  become: yes
   when: ansible_virtualization_type != "docker"
   # remove when not testing
 
@@ -134,6 +164,7 @@
     owner: root
     group: root
     mode: '0750'
+  become: yes
 
 - name: Ensure backup log file exists
   ansible.builtin.file:
@@ -142,6 +173,7 @@
     owner: root
     group: root
     mode: '0640'
+  become: yes
 
 - name: Install backup script
   ansible.builtin.template:
@@ -150,6 +182,7 @@
     owner: root
     group: root
     mode: '0750'
+  become: yes
 
 - name: Backup cron job
   ansible.builtin.cron:
@@ -158,6 +191,7 @@
     minute: "0"
     hour: "3"
     job: "/usr/local/bin/pdns-backup.sh"
+  become: yes
 
 # Certbot DNS certificate update cron
 - name: Certbot DNS cert cron job
@@ -167,3 +201,4 @@
     minute: "0"
     hour: "23"
     job: "cd /opt/svwdns && /usr/bin/docker compose up -d certbot"
+  become: yes
