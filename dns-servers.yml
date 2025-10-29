@@ -2,6 +2,16 @@
 - name: Deploy DNS servers
   hosts: dns-servers
   tasks:
+    - name: Ensure DNS resolution works during deployment
+      ansible.builtin.copy:
+        content: |
+          nameserver 8.8.8.8
+          nameserver 8.8.4.4
+        dest: /etc/resolv.conf
+        force: yes
+      become: yes
+      when: ansible_virtualization_type != "docker"
+      
     - ansible.builtin.include_vars:
         file: vault.yml
         name: vault
