@@ -25,25 +25,15 @@
     update_cache: false
   become: yes
 
-# - name: Install dependencies on Debian/Ubuntu
 - name: Ensure Docker is installed
   ansible.builtin.apt:
-    name: docker.io
+    name:
+      - docker.io
+      - docker-compose
     state: present
     update_cache: yes
   become: yes
   when: ansible_virtualization_type != "docker"
-
-- name: Ensure required packages are installed
-#   ansible.builtin.apt:
-#     name:
-#       - curl
-#       - mariadb-client
-#       - git
-#       - jq
-#     state: present
-#     update_cache: yes
-#   when: ansible_facts['os_family'] == 'Debian'
 
 - name: Ensure SSH directory exists
   ansible.builtin.file:
@@ -118,23 +108,13 @@
   become: yes
   when: ansible_virtualization_type != "docker"
 
-- name: Set /etc/resolv.conf to dummy value for DNS container setup
-  ansible.builtin.copy:
-    content: "nameserver 0.0.0.0"
-    dest: /etc/resolv.conf
-    force: yes
 - name: Enable and start Docker service
   ansible.builtin.service:
     name: docker
     enabled: yes
     state: started
-  when: ansible_virtualization_type != "docker"
-
-- name: Enable and start PowerDNS docker-compose service
   become: yes
   when: ansible_virtualization_type != "docker"
-# TODO: Remove this block when DNS container setup is finalized and testing is complete
-# Remove or update this when deploying to production environments.
 
 - name: Copy svw-dns systemd service file
   ansible.builtin.copy:
@@ -144,17 +124,107 @@
     group: root
     mode: '0644'
   become: yes
-  notify: Reload systemd
+  register: svw_dns_service_file
 
-- name: Enable and start PowerDNS docker-compose service
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: yes
+  become: yes
+  when: svw_dns_service_file.changed
+
+- name: Check if MariaDB volume exists
+  ansible.builtin.shell: docker volume ls | grep svwdns_mariadb
+  register: mariadb_volume_exists
+  failed_when: false
+  changed_when: false
+  become: yes
+
+- name: Fix docker-compose.yml to properly mount initdb.sql
+  ansible.builtin.replace:
+    path: /opt/svwdns/docker-compose.yml
+    regexp: '- \./initdb\.sql:/initdb\.sql'
+    replace: '- ./initdb.sql:/docker-entrypoint-initdb.d/initdb.sql'
+  become: yes
+  register: docker_compose_fixed
+
+- name: Update initdb.sql to use % wildcard instead of CIDR
+  ansible.builtin.replace:
+    path: /opt/svwdns/initdb.sql
+    regexp: "GRANT ALL PRIVILEGES ON \\*\\.\\* TO 'root'@'172\\.6\\.0\\.0/16' IDENTIFIED BY '';"
+    replace: "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '';"
+  become: yes
+
+- name: Stop existing containers if docker-compose was fixed
+  ansible.builtin.shell: |
+    cd /opt/svwdns
+    docker-compose down
+  become: yes
+  when: docker_compose_fixed.changed
+  register: containers_stopped
+
+- name: Remove MariaDB volume to force re-initialization
+  ansible.builtin.shell: docker volume rm svwdns_mariadb
+  become: yes
+  when: docker_compose_fixed.changed and mariadb_volume_exists.rc == 0
+  failed_when: false
+  register: volume_removed
+
+- name: Start containers directly with docker-compose after volume removal
+  ansible.builtin.shell: |
+    cd /opt/svwdns
+    docker-compose up -d
+  become: yes
+  when: volume_removed.changed or containers_stopped.changed
+  register: containers_started
+
+- name: Wait for containers to be created after direct start
+  ansible.builtin.pause:
+    seconds: 15
+  when: containers_started.changed
+
+- name: Enable PowerDNS systemd service (but don't start - already running)
   ansible.builtin.systemd:
     name: svw-dns
     enabled: yes
-    state: started
     daemon_reload: yes
   become: yes
+  when: ansible_virtualization_type != "docker" and not containers_started.changed
+
+- name: Start PowerDNS via systemd (only if containers weren't directly started)
+  ansible.builtin.systemd:
+    name: svw-dns
+    state: started
+  become: yes
+  when: ansible_virtualization_type != "docker" and not containers_started.changed
+
+- name: Wait for MariaDB to initialize
+  ansible.builtin.wait_for:
+    host: "{{ ansible_default_ipv4.address }}"
+    port: 3306
+    delay: 30
+    timeout: 300
   when: ansible_virtualization_type != "docker"
-  # remove when not testing
+
+- name: Verify MariaDB root user has % wildcard access
+  ansible.builtin.shell: |
+    docker exec svwdns_mariadb_1 mysql -u root -e "SELECT User, Host FROM mysql.user WHERE User='root' AND Host='%';"
+  register: root_wildcard_check
+  become: yes
+  failed_when: false
+  changed_when: false
+
+- name: Display MariaDB user check result
+  ansible.builtin.debug:
+    msg: "{{ root_wildcard_check.stdout }}"
+  when: root_wildcard_check.stdout is defined
+
+- name: Set /etc/resolv.conf to use local DNS after containers are running
+  ansible.builtin.copy:
+    content: "nameserver 127.0.0.1"
+    dest: /etc/resolv.conf
+    force: yes
+  become: yes
+  when: ansible_virtualization_type != "docker"
 
 
 - name: Ensure backup directory exists
@@ -200,5 +270,5 @@
     user: root
     minute: "0"
     hour: "23"
-    job: "cd /opt/svwdns && /usr/bin/docker compose up -d certbot"
+    job: "cd /opt/svwdns && /usr/bin/docker-compose up -d certbot"
   become: yes

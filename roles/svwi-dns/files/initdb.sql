@@ -1,9 +1,12 @@
+
 -- Create the powerdns database
 CREATE DATABASE IF NOT EXISTS powerdns;
 
--- Grant privileges to the root user for localhost and the Docker network
-GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' IDENTIFIED BY '';
-GRANT ALL PRIVILEGES ON *.* TO 'root'@'172.6.0.0/16' IDENTIFIED BY '';
+-- Grant privileges to the root user for localhost and all hosts (% wildcard)
+-- Note: Using CREATE USER first, then GRANT for MariaDB 10.6+ compatibility
+CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY '';
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost';
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
 
 -- It's generally recommended to avoid using the root user for application connections.
 -- A more secure approach would be to create a dedicated user for PowerDNS with
