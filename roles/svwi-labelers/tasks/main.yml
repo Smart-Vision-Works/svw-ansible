@@ -5,6 +5,23 @@
   with_items:
     - "main.yml"
 
+# VS Code and Microsoft repos are vestigial, and have a lot of errors
+# Dan Haskin, 2025-10-30
+- name: Remove VS Code apt repository
+  ansible.builtin.file:
+    path: '/etc/apt/sources.list.d/vscode.list'
+    state: absent
+
+- name: Remove VS Code apt repository
+  ansible.builtin.file:
+    path: '/etc/apt/sources.list.d/vscode.sources'
+    state: absent
+
+- name: Remove Microsoft repository
+  ansible.builtin.file:
+    path: '/etc/apt/sources.list.d/microsoft-ubuntu.list'
+    state: absent
+
 - name: Load kernel modules
   community.general.modprobe:
     name: "{{ item }}"
@@ -64,6 +81,8 @@
 - name: Setup boundary connectivity
   ansible.builtin.include_tasks: boundary_setup.yml
   when: ansible_facts['virtualization_type'] != 'docker'
+
+- name: Enable PAM mkhomedir module
   ansible.builtin.command:
     cmd: /usr/sbin/pam-auth-update --enable mkhomedir
     creates: /var/lib/ansible-exec/pam-auth-update

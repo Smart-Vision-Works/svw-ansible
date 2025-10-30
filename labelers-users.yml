@@ -1,0 +1,10 @@
+---
+- name: Ensure the labelers users are all good
+  hosts: labeler-machines
+  tasks:
+    - ansible.builtin.include_vars:
+        file: vault.yml
+        name: vault
+    - ansible.builtin.include_role:
+        tasks_from: labelers
+        name: svwi-users

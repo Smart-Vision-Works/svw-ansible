@@ -1,0 +1,16 @@
+---
+- name: Ensure the labelers are in compliance with IaC
+  hosts: labeler-machines
+  tasks:
+    - ansible.builtin.include_vars:
+        file: vault.yml
+        name: vault
+    - ansible.builtin.include_role:
+        name: svwi-labelers
+    - ansible.builtin.include_role:
+        name: svwi-users
+    - ansible.builtin.include_role:
+        tasks_from: labelers
+        name: svwi-users
+    - ansible.builtin.include_role:
+        name: svwi-basenode

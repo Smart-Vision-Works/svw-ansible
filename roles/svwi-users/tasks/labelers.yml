@@ -6,9 +6,8 @@
     system: true
 
 - name: Create labelers users
-  include_task:
+  ansible.builtin.include_tasks:
     file: svw-users.yml
-    name: Create labelers users
   vars:
     users:
       - name: 'rovard'
@@ -63,6 +62,16 @@
           - 'labelers'
       - name: 'apowell'
         password_hash: '$y$j9T$bLOZB70ZbUwjk21wUD3TV1$58erIEgMEl41KiOZOFFAGHVAUTk8WN7ouEMweSYkGR6'
+        groups:
+          - 'docker'
+          - 'labelers'
+      - name: 'eweaver'
+        password_hash: '$y$j9T$QHs44uZ7mW0haIeL28Ooi1$F/Q2uylTXMUjmvV2LO5m1a0owzPQ8.mIGaG3k54lq09'
+        groups:
+          - 'docker'
+          - 'labelers'
+      - name: 'jtownsend'
+        password_hash: '$y$j9T$n.3ezr6KXjdEarB65QQYi/$vAU9CiSc8d8LJVpC3gE1ESUo1sSEb0en7yg4weQVvTA'
         groups:
           - 'docker'
           - 'labelers'

@@ -2,3 +2,4 @@
 - name: Reload sudoers
   ansible.builtin.command: /usr/sbin/visudo -c
   become: true
+  ignore_errors: true
