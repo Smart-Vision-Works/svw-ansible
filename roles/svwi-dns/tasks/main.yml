@@ -143,7 +143,7 @@
   ansible.builtin.replace:
     path: /opt/svwdns/docker-compose.yml
     regexp: '- \./initdb\.sql:/initdb\.sql'
-    replace: '- ./initdb.sql:/docker-entrypoint-initdb.d/initdb.sql'
+    replace: '- ./initdb.sql:/docker-entrypoint-initdb.sql'
   become: yes
   register: docker_compose_fixed
 
@@ -154,18 +154,34 @@
     replace: "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '';"
   become: yes
 
-- name: Stop existing containers if docker-compose was fixed
+- name: Check MariaDB root user permissions (if volume exists)
+  ansible.builtin.shell: |
+    cd /opt/svwdns
+    docker-compose up -d mariadb
+    sleep 10
+    docker-compose exec -T mariadb mysql -e "SELECT User, Host FROM mysql.user WHERE User='root' AND Host='%';" 2>&1 || echo "PERMISSION_CHECK_FAILED"
+  register: mariadb_permission_check
+  become: yes
+  when: mariadb_volume_exists.rc == 0
+  failed_when: false
+  changed_when: false
+
+- name: Determine if database needs re-initialization
+  ansible.builtin.set_fact:
+    needs_db_reinit: "{{ docker_compose_fixed.changed or (mariadb_volume_exists.rc == 0 and (mariadb_permission_check.stdout is search('PERMISSION_CHECK_FAILED') or mariadb_permission_check.stdout is search('ERROR 1130') or mariadb_permission_check.stdout is search('not allowed to connect'))) }}"
+
+- name: Stop existing containers if re-initialization needed
   ansible.builtin.shell: |
     cd /opt/svwdns
     docker-compose down
   become: yes
-  when: docker_compose_fixed.changed
+  when: needs_db_reinit
   register: containers_stopped
 
 - name: Remove MariaDB volume to force re-initialization
   ansible.builtin.shell: docker volume rm svwdns_mariadb
   become: yes
-  when: docker_compose_fixed.changed and mariadb_volume_exists.rc == 0
+  when: needs_db_reinit and mariadb_volume_exists.rc == 0
   failed_when: false
   register: volume_removed
 
