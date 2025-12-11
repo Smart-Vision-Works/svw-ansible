@@ -1,9 +1,15 @@
-- name: Create labelers group
+- name: Check if labelers group exists
+  ansible.builtin.shell: "getent group labelers"
+  register: labelers_group_check
+  failed_when: false
+
+- name: Create labelers group if it doesn't exist
   ansible.builtin.group:
     name: labelers
     state: present
     gid: 1293804218
     system: true
+  when: labelers_group_check.rc != 0
 
 - name: Create labelers users
   ansible.builtin.include_tasks:

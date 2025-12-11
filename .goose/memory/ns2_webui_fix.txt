@@ -1,0 +1,3 @@
+# ["ns2", "powerdns", "mariadb", "permissions", "ansible", "fix"]
+NS2 PowerDNS Web UI fix: Problem was MariaDB permissions broken after sync_office.sh import. Solution: (1) Changed .env permissions to 0640 (commit 1bd65a8). (2) Added intelligent MariaDB permission checking to Ansible role (commit f0c1f56) - checks root@'%' user, detects ERROR 1130, auto-removes volume and reinits if permissions broken. Quick fix: docker-compose down && docker volume rm svwdns_mariadb && docker-compose up -d. Permanent: Re-run ansible playbook - will auto-detect and fix.
+

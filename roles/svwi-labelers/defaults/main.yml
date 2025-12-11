@@ -1,7 +1,9 @@
 ---
 # NVIDIA Driver and CUDA Configuration
-nvidia_driver_version: "565"
-nvidia_cuda_version: "565"
+# Note: Driver 570+ required for kernel 6.14.x compatibility
+# Driver 570.26+ supports CUDA 12.8 and is compatible with kernel 6.14
+nvidia_driver_version: "570"
+nvidia_cuda_version: "570"
 
 # AAD (Azure Active Directory) Configuration
 aad_tenant_id: "{{ vault.aad_tenant_id | default('') }}"
@@ -43,6 +45,10 @@ nfs_mounts:
     src: "10.8.7.246:/mnt/tank/shared"
     path: "/auto/shared_ro"
     opts: "soft,intr"
+  - name: ds_ro
+    src: "10.8.7.239:/mnt/tank/ds"
+    path: "/auto/ds_ro"
+    opts: "soft,intr,ro"
 
 # Boundary Configuration
 boundary_addr: "https://45fd7f1b-a8f8-4234-aead-1bd82ed4f05a.boundary.hashicorp.cloud/"

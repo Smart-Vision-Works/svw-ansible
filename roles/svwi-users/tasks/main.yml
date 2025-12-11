@@ -1,5 +1,49 @@
+# - name: Run the "admins" task
+#   import_tasks: admins.yml
+
+# - name: Run the "service" task
+#   import_tasks: service.yml
+# Main tasks file for svwi-users role
 - name: Run the "admins" task
   import_tasks: admins.yml
 
+- name: Run the "data" task
+  import_tasks: data.yml
+
+- name: Run the "developers" task
+  import_tasks: developers.yml
+
+- name: Run the "labelers" task
+  import_tasks: labelers.yml
+
 - name: Run the "service" task
   import_tasks: service.yml
+
+- name: Create skeleton directory
+  ansible.builtin.file:
+    path: /etc/skel
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: yes
+
+- name: Deploy skeleton files
+  ansible.builtin.copy:
+    src: "skel/{{ item }}"
+    dest: "/etc/skel/{{ item }}"
+    mode: '0644'
+    owner: root
+    group: root
+  loop:
+    - .bashrc
+    - .bash_logout
+    - .profile
+  become: yes
+
+- name: Ensure docker group exists
+  ansible.builtin.group:
+    name: docker
+    state: present
+  become: yes
+  ignore_errors: true

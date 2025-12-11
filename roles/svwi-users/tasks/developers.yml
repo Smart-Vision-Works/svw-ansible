@@ -1,0 +1,10 @@
+---
+- name: Add developer users
+  include_tasks: svw-users.yml
+  vars:
+    users:
+      - name: 'casey'
+        ssh_keys: |
+          ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKtlok+RPh5GX6URKjlcj2J4X4daWRo/pY5Asqe70gKh caseymerrill@smartvisionworks.com
+        groups:
+          - admins

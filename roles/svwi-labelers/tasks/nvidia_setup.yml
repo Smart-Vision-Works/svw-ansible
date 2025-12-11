@@ -1,43 +1,125 @@
 ---
 # NVIDIA Drivers and CUDA Setup
+- name: Check kernel version compatibility
+  ansible.builtin.debug:
+    msg: "Kernel {{ ansible_kernel }} detected. Driver {{ nvidia_driver_version }} requires kernel >= 6.14 for version 570+"
+  when: ansible_kernel is version('6.14', '>=') and nvidia_driver_version is version('570', '<')
+  
+- name: Warn if kernel/driver mismatch detected
+  ansible.builtin.fail:
+    msg: "CRITICAL: Kernel {{ ansible_kernel }} requires NVIDIA driver 570 or newer. Current config: {{ nvidia_driver_version }}"
+  when: 
+    - ansible_kernel is version('6.14', '>=')
+    - nvidia_driver_version is version('570', '<')
+  ignore_errors: false
+
 - name: Download NVIDIA driver installer (optional/backup)
   ansible.builtin.get_url:
     url: "{{ downloads.nvidia_driver }}"
     dest: /tmp/NVIDIA-Linux-x86_64-530.41.03.run
     mode: '0755'
   become: true
+  when: false  # Disabled - using apt packages instead
 
-- name: Install NVIDIA CUDA drivers
-  ansible.builtin.package:
-    name: "{{ nvidia_packages }}"
+- name: Purge ALL old NVIDIA driver packages before installing new ones
+  ansible.builtin.shell:
+    cmd: |
+      # Purge all NVIDIA driver packages (any version)
+      apt-get purge -y 'nvidia-driver-*' 'nvidia-utils-*' 'nvidia-kernel-common-*' \
+                       'cuda-drivers-*' 'libnvidia-*' 'nvidia-dkms-*' || true
+      # Clean up residual config files
+      apt-get autoremove -y || true
+      apt-get autoclean -y || true
+  become: true
+  changed_when: true
+  ignore_errors: true
+  register: purge_result
+
+- name: Display purge results
+  ansible.builtin.debug:
+    msg: "Old NVIDIA packages purged - ready for driver {{ nvidia_driver_version }} installation"
+
+- name: Install NVIDIA CUDA drivers (let APT handle dependencies)
+  ansible.builtin.apt:
+    name:
+      - "cuda-drivers-{{ nvidia_cuda_version }}"
+      - "nvidia-container-toolkit"
+      - "nvidia-docker2"
     state: latest
+    update_cache: false  # Already updated in repository setup
+    allow_unauthenticated: false
   become: true
   notify: restart docker
+  register: nvidia_install
 
-- name: Install nvidia-docker2
-  ansible.builtin.package:
-    name: nvidia-docker2
+- name: Load nvidia kernel modules
+  community.general.modprobe:
+    name: "{{ item }}"
     state: present
+  loop:
+    - nvidia
+    - nvidia_uvm
+    - nvidia_drm
+    - nvidia_modeset
   become: true
-  notify: restart docker
+  ignore_errors: true  # May fail if driver just installed
 
-- name: Configure Docker for NVIDIA runtime
+- name: Check if Docker daemon.json exists
+  ansible.builtin.stat:
+    path: /etc/docker/daemon.json
+  register: docker_daemon_json
+
+- name: Backup existing Docker daemon.json
   ansible.builtin.copy:
-    src: docker-daemon.json
+    src: /etc/docker/daemon.json
+    dest: /etc/docker/daemon.json.backup-{{ ansible_date_time.epoch }}
+    remote_src: true
+    mode: '0644'
+  become: true
+  when: docker_daemon_json.stat.exists
+
+- name: Configure Docker daemon base settings
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/roles/svwi-labelers/files/docker-daemon.json"
     dest: /etc/docker/daemon.json
     owner: root
     group: root
     mode: '0644'
-    backup: true
+  become: true
   notify: restart docker
+
+- name: Configure Docker to use NVIDIA Container Runtime with nvidia-ctk
+  ansible.builtin.command:
+    cmd: nvidia-ctk runtime configure --runtime=docker
+  become: true
+  notify: restart docker
+  register: nvidia_ctk_config
+  changed_when: nvidia_ctk_config.rc == 0
+
+- name: Verify nvidia-smi is working
+  ansible.builtin.command:
+    cmd: nvidia-smi
+  become: true
+  register: nvidia_smi_check
+  changed_when: false
+  failed_when: false
+
+- name: Display nvidia-smi status
+  ansible.builtin.debug:
+    msg: "nvidia-smi {{ 'is working' if nvidia_smi_check.rc == 0 else 'failed - may need reboot' }}"
+
+- name: Check if Zabbix agent directory exists
+  ansible.builtin.stat:
+    path: /etc/zabbix/zabbix_agentd.d
+  register: zabbix_dir
   become: true
 
-- name: Copy Zabbix NVIDIA monitoring parameters (if needed)
+- name: Copy Zabbix NVIDIA monitoring parameters (if Zabbix is installed)
   ansible.builtin.copy:
-    src: userparameter_nvidia-smi.conf.linux
+    src: "{{ playbook_dir }}/roles/svwi-labelers/files/userparameter_nvidia-smi.conf.linux"
     dest: /etc/zabbix/zabbix_agentd.d/userparameter_nvidia-smi.conf
     owner: root
     group: root
     mode: '0644'
   become: true
-  when: "'zabbix-agent' in ansible_facts.packages"
+  when: zabbix_dir.stat.exists

@@ -1,0 +1,73 @@
+---
+# Minimal APT Repository Setup - NVIDIA only (for focused NVIDIA driver updates)
+
+# Remove ALL old NVIDIA repository files first (including backups)
+- name: Remove all existing NVIDIA repository files and backups
+  ansible.builtin.shell:
+    cmd: |
+      rm -f /etc/apt/sources.list.d/*nvidia*.list*
+      rm -f /etc/apt/sources.list.d/*cuda*.list*
+      rm -f /etc/apt/sources.list.d/nvidia-*.list*
+      ls -la /etc/apt/sources.list.d/*nvidia* 2>/dev/null || echo "All NVIDIA repo files removed"
+  become: true
+  changed_when: true
+  register: cleanup_nvidia_repos
+
+- name: Create keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+  become: true
+
+# NVIDIA Container Toolkit Repository
+- name: Download NVIDIA Container Toolkit GPG key
+  ansible.builtin.get_url:
+    url: "{{ apt_repositories.nvidia_container_toolkit.key_url }}"
+    dest: /tmp/nvidia-container-toolkit.asc
+  become: true
+
+- name: Convert NVIDIA Container Toolkit key to GPG format
+  ansible.builtin.shell:
+    cmd: "gpg --dearmor -o {{ apt_repositories.nvidia_container_toolkit.key_file }} < /tmp/nvidia-container-toolkit.asc"
+    creates: "{{ apt_repositories.nvidia_container_toolkit.key_file }}"
+  become: true
+
+- name: Add NVIDIA Container Toolkit repository
+  ansible.builtin.apt_repository:
+    repo: "{{ apt_repositories.nvidia_container_toolkit.repo }}"
+    state: present
+    update_cache: false
+  become: true
+
+# NVIDIA CUDA Repository
+- name: Download NVIDIA CUDA GPG key
+  ansible.builtin.get_url:
+    url: "{{ apt_repositories.nvidia_cuda.key_url }}"
+    dest: /tmp/nvidia-cuda.asc
+  become: true
+
+- name: Convert NVIDIA CUDA key to GPG format
+  ansible.builtin.shell:
+    cmd: "gpg --dearmor -o {{ apt_repositories.nvidia_cuda.key_file }} < /tmp/nvidia-cuda.asc"
+    creates: "{{ apt_repositories.nvidia_cuda.key_file }}"
+  become: true
+
+- name: Add NVIDIA CUDA repository
+  ansible.builtin.apt_repository:
+    repo: "{{ apt_repositories.nvidia_cuda.repo }}"
+    state: present
+    update_cache: false
+  become: true
+
+- name: Update APT cache after adding NVIDIA repositories
+  ansible.builtin.apt:
+    update_cache: true
+  become: true
+  register: apt_update_result
+  failed_when: false  # Don't fail on warnings from other repos
+
+- name: Display APT update result
+  ansible.builtin.debug:
+    msg: "APT cache update completed (ignoring any warnings from non-NVIDIA repos)"
+

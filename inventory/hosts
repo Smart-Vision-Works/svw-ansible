@@ -38,3 +38,6 @@ svw-ls-09 ansible_host=10.10.16.109
 svw-ls-10 ansible_host=10.10.16.110
 svw-ls-11 ansible_host=10.10.16.111
 svw-ls-12 ansible_host=10.10.16.112
+
+[test-servers]
+localhost ansible_connection=local

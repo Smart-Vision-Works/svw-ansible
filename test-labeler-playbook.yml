@@ -1,17 +1,69 @@
 ---
-- name: Test SVWI Labelers Role on Hardware
-  hosts: labelers
-  become: yes
-  gather_facts: yes
-  
-  # roles:
-  #   - svwi-labelers
-  tasks:
-    - name: run the role
-      include_role:
-        name: svwi-labelers
+# Test playbook specifically for labeler machines
+# This playbook tests the svwi-users role on labeler systems only
 
-  post_tasks:
-    - name: Display test completion message
+- name: Test svwi-users role on labeler machines
+  hosts: labeler-machines
+  become: yes
+  tags: test-labelers
+  
+  tasks:
+    - name: Print test header
       debug:
-        msg: "SVWI Labelers role deployment completed successfully on {{ inventory_hostname }}"
+        msg: "Testing svwi-users role on {{ inventory_hostname }}"
+
+    - name: Test labeler users role
+      include_role:
+        name: svwi-users
+        tasks_from: labelers
+
+    - name: Verify labelers group exists
+      command: getent group labelers
+      register: group_check
+      failed_when: group_check.rc != 0
+
+    - name: Verify key labeler users exist
+      command: getent passwd "{{ item }}"
+      loop:
+        - rovard
+        - mweaver
+        - tmoon
+        - jrice
+      register: user_check
+      failed_when: user_check.rc != 0
+
+    - name: Check docker group membership for labelers
+      shell: getent group docker
+      register: docker_group
+      changed_when: false
+
+    - name: Display results
+      debug:
+        msg: |
+          Labeler machine {{ inventory_hostname }} test results:
+          - Labelers group: {{ group_check.stdout | regex_search('labelers:.*') }}
+          - Docker group: {{ docker_group.stdout | regex_search('docker:.*') }}
+          - Key users verified: OK
+
+    - name: Test sudoers configuration
+      stat:
+        path: /etc/sudoers.d/admin-sudo
+      register: admin_sudoers
+
+    - name: Display sudoers status
+      debug:
+        msg: "Admin sudoers file exists: {{ admin_sudoers.stat.exists }}"
+
+    - name: Test skeleton files
+      stat:
+        path: "/etc/skel/{{ item }}"
+      loop:
+        - .bashrc
+        - .bash_logout
+        - .profile
+      register: skeleton_files
+
+    - name: Display skeleton status
+      debug:
+        msg: "Skeleton file {{ item.item }} exists: {{ item.stat.exists }}"
+      loop: "{{ skeleton_files.results }}"

@@ -49,7 +49,7 @@
 
 - name: Copy static Docker daemon config
   ansible.builtin.copy:
-    src: docker-daemon.json
+    src: "{{ playbook_dir }}/roles/svwi-labelers/files/docker-daemon.json"
     dest: /etc/docker/daemon.json
     owner: root
     group: root

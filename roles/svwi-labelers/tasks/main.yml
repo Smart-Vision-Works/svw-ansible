@@ -58,8 +58,12 @@
 
 - name: Setup NVIDIA drivers and CUDA
   ansible.builtin.include_tasks: nvidia_setup.yml
+  when: ansible_facts['virtualization_type'] != 'docker'
+
+- name: Setup Docker
   ansible.builtin.include_tasks: docker_setup.yml
   when: ansible_facts['virtualization_type'] != 'docker'
+
 - name: Setup development tools
   ansible.builtin.include_tasks: development_tools.yml
 
@@ -69,7 +73,10 @@
 - name: Setup NFS mounts
   ansible.builtin.include_tasks: nfs_setup.yml
   when: ansible_facts['virtualization_type'] != 'docker'
+
+- name: Setup GNOME desktop
   ansible.builtin.include_tasks: gnome_setup.yml
+  when: ansible_facts['virtualization_type'] != 'docker'
 
 - name: Setup system maintenance
   ansible.builtin.include_tasks: system_maintenance.yml

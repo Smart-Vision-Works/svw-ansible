@@ -1,9 +1,9 @@
 - name: Add data users
-  include_task: svw-users.yml
+  include_tasks: svw-users.yml
   vars:
     users:
       - name: 'ateuscher'
-        password_hash: '$y$j9T$6Rpk6dP6.lWXgCnefvNb00$bsqW7bha4ZZTXeWFDL2dFQT1l8MmI7OEZelouWW8bU2',
+        password_hash: '$y$j9T$6Rpk6dP6.lWXgCnefvNb00$bsqW7bha4ZZTXeWFDL2dFQT1l8MmI7OEZelouWW8bU2'
         ssh_keys: |
           ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCxIx2IOxkgfezzAQtxCaTsNXEiV9TrIk8/F9GxATuBJkvj0Zn6yJETGQ3aUVJEy8hhqiH1OjO9BzdVx9JIaOa6b3t0Tyd2neqAjpcvosaU5fE9y0EhPKsxQRWvoyOKLnnYCW4YvHiBCDh5kjHoIy2kRvKqZXd7T+4G0yQ4mftP4auv/t3S7vVfkekcJEREe/+XOLqFCpCjW5jgSSfrP4HHZbRE9bxhlkjsTDOwtIQO/alKfgT2l10lCe3tLVzzeIkgIkC24/XMdCdLV+oRtudAFUaX3LDJvvdL9FWz1A3aAR8Njyapa+YJTTZnszU4rBLctTjeTaUIXTTRMWb2i7EljePVkStIskVuh3N02IFrPHUT/ony0sgmJyz46K82c24FDi4G2Wm9h2+jD8dXZJ4sExeokBFXV+iPMjH3iAJthvgkCCPeBv4b82hl7oJG8Dwa76uBOH9eB7AcyaM3GE4u9VUGsyA81YddgAjd3set8N2g+1Nang9gxu1uAZlTzT0= adam@korg
           ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN1vb2xgYfUceh5tucNyXDpaIQoIHHNxxW/dStpRPmLS ateuscher_laptop
@@ -15,15 +15,14 @@
         ensure: absent
 
       - name: 'swhitlock'
-        password_hash: '$y$j9T$e1aw3XBK091nWLcGQ8LVx0$8a9umjk6thF3Z3D6pTzaOGGz7tP/q35tPr7gW1s2mQ5',
+        password_hash: '$y$j9T$e1aw3XBK091nWLcGQ8LVx0$8a9umjk6thF3Z3D6pTzaOGGz7tP/q35tPr7gW1s2mQ5'
         ssh_keys: |
           ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMg940pregEsDFVGwe5qk+Zu9rM+3KyREy+fCGh74qOu samuelhwhitlock@gmail.com
         groups:
-          - admins
           - docker
 
       - name: 'ktsai'
-        password_hash: '$6$QSUkcmAak3BJtV/4$o.JxaohRTvLSxwitVNYUz/b940CYlEz56zVgIZ0QjsrqaqySs1hMRnr9fXFYjfsnVbpEXziey2ix7lh4VHh5b0',
+        password_hash: '$6$QSUkcmAak3BJtV/4$o.JxaohRTvLSxwitVNYUz/b940CYlEz56zVgIZ0QjsrqaqySs1hMRnr9fXFYjfsnVbpEXziey2ix7lh4VHh5b0'
         ssh_keys: |
           ssh-rsa AAAAB4NzaC1yc2EAAAADAQABAAABgQDHXf1AP9T/gw/VlYPdA0Ljsj/5666YzSx/ZGmTchrENm3br3lNyPTMMh+P8NVHK8q4zbfcyD/8RPDT7q3ws4C9U65MxsAbRWHe8zzKxO0CBMsMNce563z2CUkSFB6wkb3lBTGLqciYTvFaJlBQBD1OA70Qx1R7Ikjgq/xlnM7+5vMV+8fy1RU89Fk4r3vIMn5vVhh3vedmqbHo/+yyzScBFDa7DbJLkBrDZLXLCkZATZkmx///OluaB9vTDoaTlyn89jpMHxnIgBtkZu1bXC8hKOdZ5Gg7YdpseJzUEo1hqKTJkjhFflc5jp3Q7O+kZShTMsCsHxIeEJnzBjwfkemL1iHizds3YULeiycTGA6nHPrcdY6sECXaeP/ashNCLxwcc/kx8TvwwPUuJ63w41VFflTa+k5HBqUp8thBhpjk/+pVJ40rsN/h2/kMIG6iAWh4fFP3lLAALEC2OkW6H8McAg9LAy+RILYMSug9V9yPAL9QAMj7pGTSvrr/XpiSgkU= kevin@kevin-MS-7C91
         groups:
@@ -31,7 +30,7 @@
           - docker
 
       - name: 'mheydorn'
-        password_hash: '$y$j9T$UOxRIzxZDDO1wNg3.R2Or.$97tbbQfEErx8veJ6VOd0wJEH2GjsWkuK3modM9qIDF2',
+        password_hash: '$y$j9T$UOxRIzxZDDO1wNg3.R2Or.$97tbbQfEErx8veJ6VOd0wJEH2GjsWkuK3modM9qIDF2'
         ssh_keys: |
           ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCjS1MVnxvm+LJS1ICVrLHjEjgAP77Iqn88ElrD8xGx1UgAkTap/5zUeE0uqWyxqgu22zp6P9mfKupR686IQX9VRoPAyHmFW1coTeRcIV1f75S5BJJX7mr0kyw9O6rmH3zJEZGrF6j2CcmGc8prahcLrD2bLCA18jeDUnZjE/Iff+U2P8gpmz2iGVtGJn5jlU+12BQROTuTmzg2vGKNIGsShHXg/aGeo03RNNJq3gcdPcCEVGuHpoeLh11psEV3N0LmTzuLUkcFWBNHiZ9EBj14OmRbiaVmQ190z/ku3GlWE++Ru7hHnr2+VWNRwIHQwN5w2tlM5QFjBgb3qpN0VJNq2dE0hCsM6zqMa3mbvMwGg3VCZZdzsfu/JdsgW0o60AOW4tmasKSROBdfoRm+vyN7hbQ5KInmhWPWht0oV/PWLh1oNcoJu63zvrbx6bPSzySo9epjsHXz7v46hn9i4hwUXnxyAOXFftyCz8Ib1CwtM2Q9VMH1CFHKfNJu7S++mAs= matt@matt-HP-Z420-Workstation
           ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDYVDn8giU/zjmefBflkIWGn/QW+P9uLG3K0hzMWW8F3sFKMNyp08Y8nVVwHehFmCjn4hXOpiD/TrQaGravxxFIu75d3t3w3nR3cT5sE4MBDr/Wv8/FVaMv3pprgLUqY0j9NrnVNGltPCnTRxUUztddmbHaaf8Q0ewM+aMOxNQCe8pXIpM4Yfox44DI1em6VF9l+RDE4o8+26ZMoAft6R7BksI88x3XUODeEoeukPdMO935gZiof7ze4gI/VFv0/ZGd66xUkPV33iY8HbB4EfEMI0iUmPa2mO10hnDktKezUgcR9o7VKf0gO+d2v75Kw+s0yNwbmqCsxKwN99JAA40asgFk2St0yFSGpuuZMljXeo1pd9bfN8DHRhE/XdkDNAyfI9z/nsdjcEAGvPsGR5Az5xNkvW9PMmngZaJn431yjUNXd3V9FHpKJ1xLTNepf/Mg1JhZa5MEtrDi8pKJpo+rRwsxbUIoi7iGpZrF/qJaiz3vYqMi+qneZzkcDa9bkrk= matt@matt-HP-Z420-Workstation
@@ -40,11 +39,8 @@
           - docker
 
       - name: 'sgardner'
-        password_hash: '$y$j9T$lgYb7ysPuhHUVMmKZgN600$OgEcGmF9AGh6s8XcIhxcUP8XnCdN5rKUjLRcP2SifQ9'
-        ssh_keys: |
-          ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDAd0q+oXc8onWS55ID7/C7TQLHbczo27WQdC4ZZFzTcCnrIIpq5ENeqNCtTRoKOQ3tLckkCFc+rIg5ybJvIXvvVzE4ub/OUS6A+b5Sd8EH3MgyBkkDqtPuowYxMSjVI8/comOoqAyHrLhWvocb8cADy8TPaCRWmj4/3QlLZaLXLEWfPjjiPLALHFazcM8bpWq0Av8zR6Xqfnh2eRar2YL/UpJXeF8/lVGobKrMfGfxb6smNTLVNoSGECrcKB6QNzkVjWTAvhL346drSbT2UtDfXUNCbWBwT5o/1xTAqo241uDhLgM0J3F1fOBOkyQxL1onjJyiYRUBIE6xkzidr3nQ5SK9xTPu3cqeETbo2mfUQZba9OhiyP81I8pJ6LX1sr0mYgRIXbA+UCdOJB72ACcpB3UDlMyKcVzO90w6TOx2B2VL5aKybrNKS+Ba+OOxGz+kZyB0QCWjggX1p1kh7elD+UFLopNMMsL85DIWNBL2zlB0izVz4DZd/zliFCURnR0= sgardner@sgardner-XPS-9320
-        groups:
-          - docker
+        ensure: 'absent'
+
 
       - name: 'ejones'
         password_hash: '$y$j9T$L6efuBwua3o3fZAKwF1BU.$8gnsjfeFE8mDKl/ayOKVLOWJ3D3BxoL4tLtuT0CkDP7'

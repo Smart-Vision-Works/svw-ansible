@@ -4,24 +4,28 @@
     users:
       - name: 'dhaskin'
         password_hash: '$y$j9T$IpwlSy0cAcOruD/g.WSU./$eAU27r7gwMYSibgi8wfkP2kXYuTj0qMv.tGy3S6tQY3'
-        ssh_key: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFqotJOAWF9uTyKK/OJYfvgCdmbvnkQJJaO0paVqic4r dhaskin@kpmanalytics.com'
+        ssh_keys: |
+          ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFqotJOAWF9uTyKK/OJYfvgCdmbvnkQJJaO0paVqic4r dhaskin@kpmanalytics.com
         groups:
           - admins
 
       - name: 'cmerrill'
         password_hash: '$y$j9T$4kGr878GmqiQVYhOGwDCt1$cT5VvhR4tr7Rw.XZOO6CX2nApPxN58W./WII.qVtX2B'
-        ssh_key: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOrJoPqZCOxMhBAiIoACGfnmu9MyFpve7dijxsaxjGyQ cmerrill@smartvisionworks.com'
+        ssh_keys: |
+          ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOrJoPqZCOxMhBAiIoACGfnmu9MyFpve7dijxsaxjGyQ cmerrill@smartvisionworks.com
         groups:
           - admins
 
       - name: 'ckoelling'
         password_hash: '$y$j9T$7ub5OBob3bwnhp9Z.RWof.$LDdtcXh06VoUYX9FFeDaO0Nx6mP/KJZeC8J7yeqh.X.'
-        ssh_key: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC1NOBUqQAlGHozdCopV86iXgVdo1Tj6osuK/EX7es96X11lP1urvEFtO9KPHpd13UFkArYhRVCWzgGXgnvKF5eDGRXzrQwzjDXAes58uMsDe84MC/OEyP52NWeGIgGtKBq8eoslk4dt6LHrAK9r5UvwmZCgbAwygolHLKAU1F1y0/1WNc74XCABK/MxJQzl7MG4Hi5q0AsPZG+TgD06OT8waH9sXHnIldLVeW/umD6q9+LB2VKNrQjn37lsJX/jIeB/KLI6rfSvqxYDzLTJmJAAZJ7c7awbbpMPU1L5Lm1yI30vG6xMH1rfGIGTTZNE2gHTH9UWOjFb5I+IL+Y8k0E+WWlcNspfxf5YC7z2Sa8IrqMdKwD1ScadQ8qPOUmQdpZXDDTYFosWjp6IPWQtaIB/xGnkpsvxOZlXLgGVVenrqS7NT7ix1zQ/RhfmItZ9j4xjQYynx7R3A6Yd5FYC9LguNeBBH2KTx83ftJNTxbuuP9bh1a8byguV03DPzvhNJU= ckoelling@SVW-CKOELLING'
+        ssh_keys: |
+          ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC1NOBUqQAlGHozdCopV86iXgVdo1Tj6osuK/EX7es96X11lP1urvEFtO9KPHpd13UFkArYhRVCWzgGXgnvKF5eDGRXzrQwzjDXAes58uMsDe84MC/OEyP52NWeGIgGtKBq8eoslk4dt6LHrAK9r5UvwmZCgbAwygolHLKAU1F1y0/1WNc74XCABK/MxJQzl7MG4Hi5q0AsPZG+TgD06OT8waH9sXHnIldLVeW/umD6q9+LB2VKNrQjn37lsJX/jIeB/KLI6rfSvqxYDzLTJmJAAZJ7c7awbbpMPU1L5Lm1yI30vG6xMH1rfGIGTTZNE2gHTH9UWOjFb5I+IL+Y8k0E+WWlcNspfxf5YC7z2Sa8IrqMdKwD1ScadQ8qPOUmQdpZXDDTYFosWjp6IPWQtaIB/xGnkpsvxOZlXLgGVVenrqS7NT7ix1zQ/RhfmItZ9j4xjQYynx7R3A6Yd5FYC9LguNeBBH2KTx83ftJNTxbuuP9bh1a8byguV03DPzvhNJU= ckoelling@SVW-CKOELLING
         groups:
           - admins
 
       - name: 'jhansen'
         password_hash: '$y$j9T$lgYb7ysPuhHUVMmKZgN600$OgEcGmF9AGh6s8XcIhxcUP8XnCdN5rKUjLRcP2SifQ9'
-        ssh_key: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIHcjO74Ytgm2KeQnsgqV4CU4i+DzhTxO5w/E6EiEB2A jhansen@kpmanalytics.com'
+        ssh_keys: |
+          ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIHcjO74Ytgm2KeQnsgqV4CU4i+DzhTxO5w/E6EiEB2A jhansen@kpmanalytics.com
         groups:
           - admins

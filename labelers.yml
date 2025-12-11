@@ -1,16 +1,119 @@
 ---
-- name: Ensure the labelers are in compliance with IaC
+- name: Update NVIDIA Drivers and Docker GPU Support on Labelers
   hosts: labeler-machines
+  become: true
+  
+  handlers:
+    - name: restart docker
+      ansible.builtin.systemd:
+        name: docker
+        state: restarted
+        daemon_reload: true
+      become: true
+  
   tasks:
-    - ansible.builtin.include_vars:
+    # Load vault variables
+    - name: Load vault variables
+      ansible.builtin.include_vars:
         file: vault.yml
         name: vault
-    - ansible.builtin.include_role:
-        name: svwi-labelers
-    - ansible.builtin.include_role:
-        name: svwi-users
-    - ansible.builtin.include_role:
-        tasks_from: labelers
-        name: svwi-users
-    - ansible.builtin.include_role:
-        name: svwi-basenode
+    
+    # Load role variables (needed for NVIDIA package versions)
+    - name: Load svwi-labelers variables
+      ansible.builtin.include_vars:
+        file: roles/svwi-labelers/vars/main.yml
+    
+    - name: Load svwi-labelers defaults
+      ansible.builtin.include_vars:
+        file: roles/svwi-labelers/defaults/main.yml
+    
+    # Display what we're about to install
+    - name: Display configuration
+      ansible.builtin.debug:
+        msg: |
+          Kernel: {{ ansible_kernel }}
+          NVIDIA Driver Version: {{ nvidia_driver_version }}
+          NVIDIA CUDA Version: {{ nvidia_cuda_version }}
+          Host: {{ inventory_hostname }}
+    
+    # Nuclear cleanup - remove ALL old/duplicate repository configs and GPG keys
+    - name: Remove all old/duplicate repository configs
+      ansible.builtin.shell:
+        cmd: |
+          # Remove all old NVIDIA repos
+          rm -f /etc/apt/sources.list.d/*nvidia*.list
+          rm -f /etc/apt/sources.list.d/*cuda*.list
+          # Remove duplicate Microsoft repos
+          rm -f /etc/apt/sources.list.d/vscode*
+          rm -f /etc/apt/sources.list.d/*microsoft*.list
+          rm -f /etc/apt/sources.list.d/packages_microsoft*.list
+          # Remove duplicate Google repos
+          rm -f /etc/apt/sources.list.d/*google*.list
+          rm -f /etc/apt/sources.list.d/packages_cloud*.list
+          rm -f /etc/apt/sources.list.d/dl_google*.list
+          # Remove duplicate MongoDB repos
+          rm -f /etc/apt/sources.list.d/repo_mongodb*.list
+        warn: false
+      ignore_errors: true
+    
+    - name: Remove conflicting NVIDIA GPG keys
+      ansible.builtin.shell:
+        cmd: |
+          rm -f /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+          rm -f /usr/share/keyrings/nvidia-container-toolkit.gpg
+          rm -f /usr/share/keyrings/nvidia*.gpg
+        warn: false
+      ignore_errors: true
+    
+    # Setup NVIDIA and container toolkit repositories (NVIDIA only, skipping others to avoid conflicts)
+    - name: Setup NVIDIA APT repositories
+      ansible.builtin.include_tasks:
+        file: roles/svwi-labelers/tasks/nvidia_repositories_only.yml
+    
+    # Install and configure NVIDIA drivers with kernel compatibility check
+    - name: Setup NVIDIA drivers and CUDA
+      ansible.builtin.include_tasks:
+        file: roles/svwi-labelers/tasks/nvidia_setup.yml
+      when: ansible_facts['virtualization_type'] != 'docker'
+    
+    # Setup Docker with NVIDIA runtime
+    - name: Setup Docker with NVIDIA Container Toolkit
+      ansible.builtin.include_tasks:
+        file: roles/svwi-labelers/tasks/docker_setup.yml
+      when: ansible_facts['virtualization_type'] != 'docker'
+    
+    # Final verification
+    - name: Verify NVIDIA driver installation
+      ansible.builtin.command:
+        cmd: nvidia-smi --query-gpu=driver_version --format=csv,noheader
+      register: nvidia_driver_check
+      changed_when: false
+      failed_when: false
+    
+    - name: Display verification results
+      ansible.builtin.debug:
+        msg: |
+          {% if nvidia_driver_check.rc == 0 %}
+          ✅ NVIDIA Driver installed: {{ nvidia_driver_check.stdout }}
+          ⚠️  Reboot required if driver was just installed or upgraded
+          {% else %}
+          ❌ NVIDIA Driver not working yet (nvidia-smi failed)
+          ⚠️  A reboot is required to load the new kernel modules
+          {% endif %}
+
+# Full compliance playbook (commented out - use this after NVIDIA updates are complete)
+# - name: Ensure the labelers are in compliance with IaC
+#   hosts: labeler-machines
+#   tasks:
+#     - ansible.builtin.include_vars:
+#         file: vault.yml
+#         name: vault
+#     - ansible.builtin.include_role:
+#         name: svwi-labelers
+#     - ansible.builtin.include_role:
+#         name: svwi-users
+#     - ansible.builtin.include_role:
+#         tasks_from: labelers
+#         name: svwi-users
+#     - ansible.builtin.include_role:
+#         name: svwi-basenode

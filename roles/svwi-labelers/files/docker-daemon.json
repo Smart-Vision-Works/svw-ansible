@@ -8,6 +8,7 @@
             "runtimeArgs": []
         }
     },
+    "default-runtime": "nvidia",
     "insecure-registries": [
         "10.10.4.5:5003",
         "10.10.4.6:5003",
