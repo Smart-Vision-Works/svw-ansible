@@ -1,0 +1,33 @@
+---
+# Default variables for svwi-office-blade role
+# These can be overridden in host_vars or group_vars
+
+# Vault-managed secrets (should be defined in vault)
+aptcachepw: "{{ vault.aptcachepw | default('') }}"
+labelingdockertoken: "{{ vault.labelingdockertoken | default('') }}"
+balenatoken: "{{ vault.balenatoken | default('') }}"
+mongoapipubkey: "{{ vault.mongoapipubkey | default('') }}"
+mongoapiprivkey: "{{ vault.mongoapiprivkey | default('') }}"
+mongopassword: "{{ vault.mongopassword | default('') }}"
+
+# DNS configuration (passed to svwi_dns role)
+dns_buddyip: '10.10.1.1'
+dns_dnshostname: 'nsoffice.svwi.us'
+dns_sqlid: '103'
+
+# Docker registry configuration
+docker_insecure_registries:
+  - "10.10.4.5:5003"
+  - "10.10.4.6:5003"
+  - "10.8.7.248:5555"
+
+# Docker image versions
+proxpi_version: 'v1.1.0'
+registry_version: 'latest'
+device_status_image: 'us-west1-docker.pkg.dev/svw-proper/record-device-status'
+device_status_tag: 'e163430'
+
+# MongoDB configuration
+mongo_protocol: 'mongodb+srv://'
+mongo_host: 'cluster0.y7uro.mongodb.net/Manufacturing?retryWrites=true&w=majority'
+mongo_username: 'v-DEVICE_STATUS-temp'

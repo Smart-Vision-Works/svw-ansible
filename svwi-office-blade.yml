@@ -1,0 +1,22 @@
+---
+- name: Configure Office Blade Servers
+  hosts: office-servers
+  become: true
+  
+  tasks:
+    - name: Load vault variables
+      ansible.builtin.include_vars:
+        file: vault.yml
+        name: vault
+    
+    - name: Include svwi-users role
+      ansible.builtin.include_role:
+        name: svwi-users
+    
+    - name: Include svwi-basenode role
+      ansible.builtin.include_role:
+        name: svwi-basenode
+    
+    - name: Include svwi-office-blade role
+      ansible.builtin.include_role:
+        name: svwi-office-blade
