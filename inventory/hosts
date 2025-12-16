@@ -1,5 +1,5 @@
-#[office-servers]
-#office-blade ansible_host=10.8.7.248
+[office-servers]
+office-blade ansible_host=10.8.7.248
 
 [datacenter-servers]
 dcblade1 ansible_host=dcblade1.svwi.us

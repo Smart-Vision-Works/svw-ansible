@@ -38,6 +38,13 @@
   become: yes
   register: svw_key_result
 
+- name: Remove old SVW package repo key if asc changed
+  ansible.builtin.file:
+    path: /usr/share/keyrings/svw.gpg
+    state: absent
+  become: yes
+  when: svw_key_result.changed
+
 - name: Add SVW package repo key
   ansible.builtin.command:
     cmd: >
@@ -47,9 +54,8 @@
         --dearmor
         -o /usr/share/keyrings/svw.gpg
         /usr/share/keyrings/svw.asc
+    creates: '/usr/share/keyrings/svw.gpg'
   become: yes
-  when: svw_key_result.changed
-  #creates: '/usr/share/keyrings/svw.gpg'
 
 - name: Install SVW package repo
   ansible.builtin.apt_repository:

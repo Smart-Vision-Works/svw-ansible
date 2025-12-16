@@ -1,0 +1,221 @@
+---
+# Main tasks for svwi-office-blade role
+# Translated from puppet/site-modules/svwi_office_blade
+
+# Include svwi_users service role (if exists)
+- name: Include svwi_users service role
+  ansible.builtin.include_role:
+    name: svwi-users
+  tags:
+    - users
+
+# Install required packages
+- name: Install nfs-common package
+  ansible.builtin.apt:
+    name: nfs-common
+    state: present
+    update_cache: yes
+  tags:
+    - packages
+
+- name: Ensure zabbix package is absent
+  ansible.builtin.apt:
+    name: zabbix
+    state: absent
+  tags:
+    - packages
+
+# Include svwi_dns role with parameters
+# TODO: Re-enable after fixing Docker installation conflicts
+# - name: Include svwi-dns role
+#   ansible.builtin.include_role:
+#     name: svwi-dns
+#   vars:
+#     buddyip: "{{ dns_buddyip }}"
+#     dnshostname: "{{ dns_dnshostname }}"
+#     sqlid: "{{ dns_sqlid }}"
+#   tags:
+#     - dns
+
+# Create directories
+- name: Create /opt/proxpi/cache directory
+  ansible.builtin.file:
+    path: /opt/proxpi/cache
+    state: directory
+    mode: '0755'
+  tags:
+    - directories
+
+# Configure Docker
+- name: Copy docker daemon.json configuration
+  ansible.builtin.copy:
+    src: docker-daemon.json
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart docker
+  tags:
+    - docker
+
+# Pull Docker images (public images, no authentication needed)
+- name: Pull proxpi Docker image
+  community.docker.docker_image:
+    name: epicwink/proxpi
+    tag: "{{ proxpi_version }}"
+    source: pull
+  tags:
+    - docker
+
+- name: Pull registry Docker image
+  community.docker.docker_image:
+    name: registry
+    tag: "{{ registry_version }}"
+    source: pull
+  tags:
+    - docker
+
+# Run Docker containers
+- name: Create /opt/docker-registry directory
+  ansible.builtin.file:
+    path: /opt/docker-registry
+    state: directory
+    mode: '0755'
+  tags:
+    - docker
+
+- name: Run Docker registry container
+  community.docker.docker_container:
+    name: registry
+    image: "registry:{{ registry_version }}"
+    state: started
+    restart_policy: always
+    ports:
+      - "5555:5000"
+    volumes:
+      - /opt/docker-registry:/var/lib/registry
+    env:
+      REGISTRY_HTTP_ADDR: "0.0.0.0:5000"
+    memory: "2048m"
+  tags:
+    - docker
+
+- name: Run proxpi container
+  community.docker.docker_container:
+    name: epicwink-proxpi
+    image: "epicwink/proxpi:{{ proxpi_version }}"
+    state: started
+    restart_policy: always
+    ports:
+      - "5000:5000"
+    volumes:
+      - /opt/proxpi/cache:/var/cache/proxpi
+    env:
+      PROXPI_CACHE_DIR: "/var/cache/proxpi"
+    memory: "2048m"
+  tags:
+    - docker
+
+# APT-Cacher-NG configuration
+# Note: This may require a separate role or community collection for apt-cacher-ng
+# For now, we'll use apt to install and configure it manually
+- name: Install apt-cacher-ng package
+  ansible.builtin.apt:
+    name: apt-cacher-ng
+    state: present
+  tags:
+    - apt-cacher
+
+- name: Configure apt-cacher-ng passthrough pattern
+  ansible.builtin.lineinfile:
+    path: /etc/apt-cacher-ng/acng.conf
+    regexp: '^PassThroughPattern:'
+    line: 'PassThroughPattern: .*'
+    create: yes
+  notify: Restart apt-cacher-ng
+  tags:
+    - apt-cacher
+
+- name: Configure apt-cacher-ng authentication
+  ansible.builtin.copy:
+    content: "AdminAuth: svw:{{ aptcachepw }}\n"
+    dest: /etc/apt-cacher-ng/security.conf
+    owner: apt-cacher-ng
+    group: apt-cacher-ng
+    mode: '0600'
+  when: aptcachepw | length > 0
+  notify: Restart apt-cacher-ng
+  tags:
+    - apt-cacher
+
+# DNSMasq configuration
+- name: Install dnsmasq package
+  ansible.builtin.apt:
+    name: dnsmasq
+    state: present
+  tags:
+    - dnsmasq
+
+- name: Configure dnsmasq ltsp.conf
+  ansible.builtin.template:
+    src: dnsmasq.conf.j2
+    dest: /etc/dnsmasq.d/ltsp.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart dnsmasq
+  tags:
+    - dnsmasq
+
+- name: Ensure dnsmasq service is stopped and disabled
+  ansible.builtin.systemd:
+    name: dnsmasq
+    state: stopped
+    enabled: no
+  tags:
+    - dnsmasq
+
+# Systemd unit for Anritsu FTP server
+- name: Create anritsu-ftp.service systemd unit
+  ansible.builtin.copy:
+    content: |
+      # FILE MANAGED BY ANSIBLE
+      [Unit]
+      Description=FTP Server for Anritsu images
+      Wants=network-online.target
+
+      [Service]
+      WorkingDirectory=/opt/anritsu
+      ExecStart=/opt/anritsu/tensorup_ftpserver
+      Restart=on-failure
+      RestartSec=42s
+      LimitMEMLOCK=infinity
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/anritsu-ftp.service
+    owner: root
+    group: root
+    mode: '0644'
+  tags:
+    - systemd
+
+- name: Ensure anritsu-ftp service is disabled and stopped
+  ansible.builtin.systemd:
+    name: anritsu-ftp
+    state: stopped
+    enabled: no
+    daemon_reload: yes
+  tags:
+    - systemd
+
+# NFS mount (commented out in Puppet, leaving commented here)
+# - name: Mount apt-cacher-ng cache from NAS
+#   ansible.posix.mount:
+#     path: /var/cache/apt-cacher-ng
+#     src: 10.10.1.50:/mnt/tank/shared
+#     fstype: nfs
+#     opts: soft,intr
+#     state: mounted
+#   tags:
+#     - nfs
