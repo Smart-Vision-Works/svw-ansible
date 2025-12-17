@@ -239,6 +239,7 @@
       # Run GC using the official registry image. Use default config inside image.
       docker run --rm \
         -v /opt/docker-registry:/var/lib/registry \
+        --entrypoint /bin/registry \
         registry:{{ registry_version }} \
         garbage-collect --delete-untagged /etc/docker/registry/config.yml \
         >> "$LOGFILE" 2>&1 || true
