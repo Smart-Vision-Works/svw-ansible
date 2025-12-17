@@ -240,7 +240,7 @@
       docker run --rm \
         -v /opt/docker-registry:/var/lib/registry \
         registry:{{ registry_version }} \
-        registry garbage-collect --delete-untagged /etc/docker/registry/config.yml \
+        garbage-collect --delete-untagged /etc/docker/registry/config.yml \
         >> "$LOGFILE" 2>&1 || true
       # Restart the registry container if present
       if docker ps -a --format '{{.Names}}' | grep -q '^registry$'; then
@@ -250,6 +250,7 @@
   tags:
     - docker
     - cron
+    - registry-gc
 
 - name: Ensure cron job for Docker Registry GC is present (daily at 03:30)
   ansible.builtin.cron:
