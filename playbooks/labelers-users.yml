@@ -1,0 +1,15 @@
+---
+- name: Ensure the labelers users are all good
+  hosts: labeler-machines
+  tasks:
+    - ansible.builtin.include_vars:
+        file: ../vault.yml
+        name: vault
+    - ansible.builtin.include_role:
+        tasks_from: labelers
+        name: svwi-users
+    # - ansible.builtin.include_role:
+    #     tasks_from: data
+    #     name: svwi-users
+    # when you need to add a user to the svwi-users role, add the user to the users list in the svwi-users role
+    # and then add the user to the labelers.yml file in the roles/svwi-users/tasks directory

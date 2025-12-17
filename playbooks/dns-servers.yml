@@ -13,7 +13,7 @@
       when: ansible_virtualization_type != "docker"
       
     - ansible.builtin.include_vars:
-        file: vault.yml
+        file: ../vault.yml
         name: vault
     - ansible.builtin.include_role:
         name: svwi-users

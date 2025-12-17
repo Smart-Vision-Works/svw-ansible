@@ -7,11 +7,11 @@
     # Load role variables (contains nfs_mounts configuration)
     - name: Load svwi-labelers variables
       ansible.builtin.include_vars:
-        file: roles/svwi-labelers/vars/main.yml
+        file: ../roles/svwi-labelers/vars/main.yml
     
     - name: Load svwi-labelers defaults
       ansible.builtin.include_vars:
-        file: roles/svwi-labelers/defaults/main.yml
+        file: ../roles/svwi-labelers/defaults/main.yml
     
     - name: Display NFS mounts to be configured
       ansible.builtin.debug:
@@ -20,7 +20,7 @@
     # Run the NFS setup tasks
     - name: Setup NFS mounts
       ansible.builtin.include_tasks:
-        file: roles/svwi-labelers/tasks/nfs_setup.yml
+        file: ../roles/svwi-labelers/tasks/nfs_setup.yml
     
     # Verify mounts
     - name: Verify NFS mounts are active

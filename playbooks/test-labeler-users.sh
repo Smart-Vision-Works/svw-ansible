@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-INVENTORY_FILE="inventory/hosts"
+INVENTORY_FILE="../inventory/hosts"
 PLAYBOOK_FILE="site.yml"
 ROLE_TAG="svwi-users"
 LABELER_GROUP="labeler-machines"
@@ -42,8 +42,8 @@ echo "================================================================"
 echo
 
 # Check if we're in the right directory
-if [ ! -f "site.yml" ] || [ ! -d "roles" ]; then
-    log_error "This script must be run from the svw-ansible root directory"
+if [ ! -f "site.yml" ] || [ ! -d "../roles" ]; then
+    log_error "This script must be run from the svw-ansible/playbooks directory"
     exit 1
 fi
 

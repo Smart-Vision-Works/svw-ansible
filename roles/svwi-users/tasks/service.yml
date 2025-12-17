@@ -7,6 +7,17 @@
         ssh_keys: |
           ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLWI73H25n8HFDymnX7zaH0s/lsePndkPZmdueiKdJHzC1Knq5IXX8rD7bmLaCE8ziLhGqeI7xlIir13CaZhynA= vuls-user@smartvisionworks.com
 
+- name: Fix permissions on existing service-sudoer file if it exists
+  ansible.builtin.file:
+    path: /etc/sudoers.d/service-sudoer
+    mode: '0440'
+    owner: root
+    group: root
+  become: true
+  ignore_errors: true
+  tags:
+    - sudoers
+
 - name: Ensure /etc/sudoers.d/service-sudoer is present
   ansible.builtin.copy:
     src: service-sudoer
@@ -14,6 +25,7 @@
     mode: '0440'
     owner: root
     group: root
+    validate: /usr/sbin/visudo -cf %s
   become: true
   tags:
     - sudoers
