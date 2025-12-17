@@ -15,17 +15,17 @@
     # Load vault variables
     - name: Load vault variables
       ansible.builtin.include_vars:
-        file: vault.yml
+        file: ../vault.yml
         name: vault
     
     # Load role variables (needed for NVIDIA package versions)
     - name: Load svwi-labelers variables
       ansible.builtin.include_vars:
-        file: roles/svwi-labelers/vars/main.yml
+        file: ../roles/svwi-labelers/vars/main.yml
     
     - name: Load svwi-labelers defaults
       ansible.builtin.include_vars:
-        file: roles/svwi-labelers/defaults/main.yml
+        file: ../roles/svwi-labelers/defaults/main.yml
     
     # Display what we're about to install
     - name: Display configuration
@@ -68,18 +68,18 @@
     # Setup NVIDIA and container toolkit repositories (NVIDIA only, skipping others to avoid conflicts)
     - name: Setup NVIDIA APT repositories
       ansible.builtin.include_tasks:
-        file: roles/svwi-labelers/tasks/nvidia_repositories_only.yml
+        file: ../roles/svwi-labelers/tasks/nvidia_repositories_only.yml
     
     # Install and configure NVIDIA drivers with kernel compatibility check
     - name: Setup NVIDIA drivers and CUDA
       ansible.builtin.include_tasks:
-        file: roles/svwi-labelers/tasks/nvidia_setup.yml
+        file: ../roles/svwi-labelers/tasks/nvidia_setup.yml
       when: ansible_facts['virtualization_type'] != 'docker'
     
     # Setup Docker with NVIDIA runtime
     - name: Setup Docker with NVIDIA Container Toolkit
       ansible.builtin.include_tasks:
-        file: roles/svwi-labelers/tasks/docker_setup.yml
+        file: ../roles/svwi-labelers/tasks/docker_setup.yml
       when: ansible_facts['virtualization_type'] != 'docker'
     
     # Final verification
