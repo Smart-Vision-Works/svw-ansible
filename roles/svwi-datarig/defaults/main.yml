@@ -1,0 +1,55 @@
+---
+# defaults file for svwi-datarig
+
+# NFS mount configuration
+# Old NAS (10.10.1.50)
+nfs_server: "10.10.1.50"
+nfs_share: "/mnt/tank/shared"
+nfs_mount_point: "/auto/shared"
+nfs_mount_opts: "soft,intr"
+
+# New NAS (10.10.1.51) - additional mounts
+new_nas_server: "10.10.1.51"
+new_nas_mounts:
+  - share: "/mnt/tank/ds"
+    mount_point: "/auto/ds"
+  - share: "/mnt/tank/tmp"
+    mount_point: "/auto/tmp"
+
+# Sysctl configuration
+vm_swappiness: "10"
+
+# NVIDIA driver version
+nvidia_driver_version: "580-open"
+nvidia_utils_version: "580"
+
+# nuctl version
+nuctl_version: "1.8.14"
+
+# Docker insecure registries (from docker-daemon.json)
+docker_insecure_registries:
+  - "10.10.4.5:5003"
+  - "10.10.4.6:5003"
+  - "10.8.7.248:5555"
+
+# Kernel modules to load
+kernel_modules:
+  - bridge
+  - br_netfilter
+
+# Packages to remove
+packages_to_remove:
+  - nomad
+  - consul
+  - earlyoom
+  - zabbix-agent2
+  - smartmontools
+  - zabbix
+  - sssd
+
+# Packages to install
+packages_to_install:
+  - nfs-common
+  - nvidia-driver-{{ nvidia_driver_version }}
+  - nvidia-utils-{{ nvidia_utils_version }}
+  - libteam-utils
