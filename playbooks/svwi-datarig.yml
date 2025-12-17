@@ -6,7 +6,7 @@
   tasks:
     - name: Load vault variables
       ansible.builtin.include_vars:
-        file: vault.yml
+        file: ../vault.yml
         name: vault
     
     - name: Include svwi-datarig role

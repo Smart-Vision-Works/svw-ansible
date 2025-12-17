@@ -85,6 +85,41 @@ ansible-playbook -i ../inventory.ini dns-servers.yml
 
 ---
 
+### 🖥️ Data Rig Servers
+
+#### `svwi-datarig.yml`
+**Purpose:** Configure data rig servers  
+**Target Hosts:** `datarig_servers` group  
+**Key Features:**
+- Complete data rig server setup
+- System configuration and dependencies
+- Boundary integration
+
+**Quick Commands:**
+```bash
+ansible-playbook -i ../inventory.ini svwi-datarig.yml
+```
+
+---
+
+### 🏢 Office Servers
+
+#### `svwi-office-blade.yml`
+**Purpose:** Configure office blade servers  
+**Target Hosts:** `office-servers` group  
+**Key Features:**
+- Base node configuration
+- User account management
+- Office-specific setup
+- DNSmasq configuration
+
+**Quick Commands:**
+```bash
+ansible-playbook -i ../inventory.ini svwi-office-blade.yml
+```
+
+---
+
 ### 🏢 Site-Wide
 
 #### `site.yml`
