@@ -219,3 +219,47 @@
 #     state: mounted
 #   tags:
 #     - nfs
+
+# Docker Registry Garbage Collection
+- name: Install docker registry garbage collection script
+  ansible.builtin.copy:
+    dest: /usr/local/bin/docker-registry-gc.sh
+    mode: '0755'
+    owner: root
+    group: root
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      LOGFILE=/var/log/docker-registry-gc.log
+      echo "[$(date -Is)] Starting Docker Registry GC" >> "$LOGFILE"
+      # Stop the registry container to ensure consistent state
+      if docker ps --format '{{.Names}}' | grep -q '^registry$'; then
+        docker stop registry >> "$LOGFILE" 2>&1 || true
+      fi
+      # Run GC using the official registry image. Use default config inside image.
+      docker run --rm \
+        -v /opt/docker-registry:/var/lib/registry \
+        --entrypoint /bin/registry \
+        registry:{{ registry_version }} \
+        garbage-collect --delete-untagged /etc/docker/registry/config.yml \
+        >> "$LOGFILE" 2>&1 || true
+      # Restart the registry container if present
+      if docker ps -a --format '{{.Names}}' | grep -q '^registry$'; then
+        docker start registry >> "$LOGFILE" 2>&1 || true
+      fi
+      echo "[$(date -Is)] Completed Docker Registry GC" >> "$LOGFILE"
+  tags:
+    - docker
+    - cron
+    - registry-gc
+
+- name: Ensure cron job for Docker Registry GC is present (daily at 03:30)
+  ansible.builtin.cron:
+    name: "Docker Registry Garbage Collection"
+    user: root
+    minute: "30"
+    hour: "3"
+    job: "/usr/local/bin/docker-registry-gc.sh"
+  tags:
+    - docker
+    - cron
