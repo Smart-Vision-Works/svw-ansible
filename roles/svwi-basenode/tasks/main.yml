@@ -49,6 +49,7 @@
   ansible.builtin.package:
     name: apt-transport-artifact-registry
     state: present
+    update_cache: yes
   become: yes
 
 - name: Get Artifact Registry GPG key
