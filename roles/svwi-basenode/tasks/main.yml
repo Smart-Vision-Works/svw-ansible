@@ -45,12 +45,18 @@
     filename: google-cloud-sdk
     update_cache: yes
   become: yes
+  register: gcloud_repo_result
+  failed_when: false
+
+- name: Debug Google Cloud SDK repository addition
+  ansible.builtin.debug:
+    var: gcloud_repo_result
+  when: gcloud_repo_result.failed | default(false)
 
 - name: Install google-cloud-cli (includes apt-transport-artifact-registry)
   ansible.builtin.package:
     name: google-cloud-cli
     state: present
-    update_cache: yes
   become: yes
 
 - name: Remove old SVW repository configuration
@@ -77,6 +83,13 @@
     filename: svw-artifact-registry
     update_cache: yes
   become: yes
+  register: artifact_repo_result
+  failed_when: false
+
+- name: Debug Artifact Registry repository addition
+  ansible.builtin.debug:
+    var: artifact_repo_result
+  when: artifact_repo_result.failed | default(false)
 
 - name: Install Landscape client
   ansible.builtin.package:
