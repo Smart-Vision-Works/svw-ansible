@@ -221,45 +221,68 @@
 #     - nfs
 
 # Docker Registry Garbage Collection
-- name: Install docker registry garbage collection script
-  ansible.builtin.copy:
-    dest: /usr/local/bin/docker-registry-gc.sh
+- name: Ensure git is installed
+  ansible.builtin.apt:
+    name: git
+    state: present
+  tags:
+    - packages
+    - registry-gc
+
+- name: Create /opt/svw-docker-registry directory
+  ansible.builtin.file:
+    path: /opt/svw-docker-registry
+    state: directory
+    mode: '0755'
+    owner: dhaskin
+    group: dhaskin
+  tags:
+    - registry-gc
+
+- name: Clone svw-docker-registry repository to /opt/svw-docker-registry
+  ansible.builtin.git:
+    repo: 'git@github.com:Smart-Vision-Works/svw-docker-registry.git'
+    dest: /opt/svw-docker-registry
+    version: main
+    accept_hostkey: yes
+    force: yes
+  become: no
+  tags:
+    - registry-gc
+
+- name: Fix ownership of /opt/svw-docker-registry
+  ansible.builtin.file:
+    path: /opt/svw-docker-registry
+    owner: root
+    group: root
+    recurse: yes
+  tags:
+    - registry-gc
+
+- name: Ensure docker-gc.sh script is executable
+  ansible.builtin.file:
+    path: /opt/svw-docker-registry/docker-gc.sh
     mode: '0755'
     owner: root
     group: root
-    content: |
-      #!/usr/bin/env bash
-      set -euo pipefail
-      LOGFILE=/var/log/docker-registry-gc.log
-      echo "[$(date -Is)] Starting Docker Registry GC" >> "$LOGFILE"
-      # Stop the registry container to ensure consistent state
-      if docker ps --format '{{.Names}}' | grep -q '^registry$'; then
-        docker stop registry >> "$LOGFILE" 2>&1 || true
-      fi
-      # Run GC using the official registry image. Use default config inside image.
-      docker run --rm \
-        -v /opt/docker-registry:/var/lib/registry \
-        --entrypoint /bin/registry \
-        registry:{{ registry_version }} \
-        garbage-collect --delete-untagged /etc/docker/registry/config.yml \
-        >> "$LOGFILE" 2>&1 || true
-      # Restart the registry container if present
-      if docker ps -a --format '{{.Names}}' | grep -q '^registry$'; then
-        docker start registry >> "$LOGFILE" 2>&1 || true
-      fi
-      echo "[$(date -Is)] Completed Docker Registry GC" >> "$LOGFILE"
   tags:
-    - docker
+    - registry-gc
+
+- name: Ensure cron job for Docker Registry GC runs every Monday at 2am
+  ansible.builtin.cron:
+    name: "docker-registry-gc"
+    user: root
+    minute: "0"
+    hour: "2"
+    weekday: "1"
+    job: "/opt/svw-docker-registry/docker-gc.sh"
+  tags:
     - cron
     - registry-gc
 
-- name: Ensure cron job for Docker Registry GC is present (daily at 03:30)
-  ansible.builtin.cron:
-    name: "Docker Registry Garbage Collection"
-    user: root
-    minute: "30"
-    hour: "3"
-    job: "/usr/local/bin/docker-registry-gc.sh"
+- name: Remove old docker-registry-gc.sh script from /usr/local/bin if present
+  ansible.builtin.file:
+    path: /usr/local/bin/docker-registry-gc.sh
+    state: absent
   tags:
-    - docker
-    - cron
+    - registry-gc

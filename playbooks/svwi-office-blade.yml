@@ -12,11 +12,17 @@
     - name: Include svwi-users role
       ansible.builtin.include_role:
         name: svwi-users
+      tags:
+        - always
     
     - name: Include svwi-basenode role
       ansible.builtin.include_role:
         name: svwi-basenode
+      tags:
+        - always
     
     - name: Include svwi-office-blade role
       ansible.builtin.include_role:
         name: svwi-office-blade
+      tags:
+        - always

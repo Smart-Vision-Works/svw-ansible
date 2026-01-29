@@ -20,6 +20,7 @@
       - curl
       - software-properties-common
       - ubuntu-advantage-tools
+      - gnupg
     state: present
   become: yes
 
@@ -29,41 +30,66 @@
     path: /usr/bin/nvim
   become: yes
 
-- name: Get SVW package repo key
-  ansible.builtin.get_url:
-    url: 'https://repo.smartvisionworks.com/svw.asc'
-    dest: '/usr/share/keyrings/svw.asc'
-    mode: '0644'
-    force: yes
-  become: yes
-  register: svw_key_result
-
-- name: Remove old SVW package repo key if asc changed
-  ansible.builtin.file:
-    path: /usr/share/keyrings/svw.gpg
-    state: absent
-  become: yes
-  when: svw_key_result.changed
-
-- name: Add SVW package repo key
-  ansible.builtin.command:
-    cmd: >
-      gpg
-        --batch
-        --no-default-keyring
-        --dearmor
-        -o /usr/share/keyrings/svw.gpg
-        /usr/share/keyrings/svw.asc
-    creates: '/usr/share/keyrings/svw.gpg'
+- name: Download and install Google Cloud SDK GPG key
+  ansible.builtin.shell: |
+    curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+    chmod 644 /usr/share/keyrings/cloud.google.gpg
+  args:
+    creates: /usr/share/keyrings/cloud.google.gpg
   become: yes
 
-- name: Install SVW package repo
+- name: Add Google Cloud SDK repository
   ansible.builtin.apt_repository:
-    repo: 'deb [arch=amd64 signed-by=/usr/share/keyrings/svw.gpg] https://repo.smartvisionworks.com/jammy  jammy main'
+    repo: 'deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main'
     state: present
-    filename: svw
+    filename: google-cloud-sdk
     update_cache: yes
   become: yes
+  register: gcloud_repo_result
+  failed_when: false
+
+- name: Debug Google Cloud SDK repository addition
+  ansible.builtin.debug:
+    var: gcloud_repo_result
+  when: gcloud_repo_result.failed | default(false)
+
+- name: Install google-cloud-cli (includes apt-transport-artifact-registry)
+  ansible.builtin.package:
+    name: google-cloud-cli
+    state: present
+  become: yes
+
+- name: Remove old SVW repository configuration
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/svw.list
+    state: absent
+  become: yes
+  notify: Update apt cache
+
+- name: Remove old SVW GPG keys
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  become: yes
+  loop:
+    - /usr/share/keyrings/svw.gpg
+    - /usr/share/keyrings/svw.asc
+  notify: Update apt cache
+
+- name: Add SVW Artifact Registry repository
+  ansible.builtin.apt_repository:
+    repo: 'deb ar+https://us-west1-apt.pkg.dev/projects/svw-proper apt-repo main'
+    state: present
+    filename: svw-artifact-registry
+    update_cache: yes
+  become: yes
+  register: artifact_repo_result
+  failed_when: false
+
+- name: Debug Artifact Registry repository addition
+  ansible.builtin.debug:
+    var: artifact_repo_result
+  when: artifact_repo_result.failed | default(false)
 
 - name: Install Landscape client
   ansible.builtin.package:
@@ -104,25 +130,6 @@
     force: yes
   become: yes
   register: sentinelagent_result
-
-# - name: Install SVW package repo
-#   ansible.builtin.apt_repository:
-#     repo: 'deb [arch=amd64 signed-by=/usr/share/keyrings/svw.gpg] https://repo.smartvisionworks.com/jammy jammy main'
-#     state: present
-#     filename: svw
-#     update_cache: yes
-# this was to replace builtin.file, but it didn't do what we needed. so we added a handler. 
-
-- name: Add SVW repo file
-  ansible.builtin.copy:
-    dest: /etc/apt/sources.list.d/svw.list
-    content: |
-      deb [arch=amd64 signed-by=/usr/share/keyrings/svw.gpg] https://repo.smartvisionworks.com/jammy jammy main
-    owner: root
-    group: root
-    mode: '0644'
-  become: yes
-  notify: Update apt cache
 
 - name: Add SentinelOne management token
   ansible.builtin.command: >
