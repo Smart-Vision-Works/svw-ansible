@@ -1,4 +1,3 @@
-# dns-servers group variables
-
+---
 # Labeler users/groups are only needed on labeler machines, not DNS servers
 deploy_labelers: false

@@ -1,0 +1,8 @@
+# Managed by Ansible - do not edit manually
+# Publishes the PowerDNS authoritative server on host port {{ pdns_auth_port }}
+# so the system pdns-recursor can forward {{ recursor_forward_zones }} to it.
+services:
+  {{ pdns_auth_service }}:
+    ports:
+      - "{{ pdns_auth_port }}:53"
+      - "{{ pdns_auth_port }}:53/udp"

@@ -14,7 +14,8 @@
   import_tasks: developers.yml
 
 - name: Run the "labelers" task
-  import_tasks: labelers.yml
+  include_tasks: labelers.yml
+  when: deploy_labelers | default(true)
 
 - name: Run the "service" task
   import_tasks: service.yml

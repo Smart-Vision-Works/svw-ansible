@@ -1,0 +1,13 @@
+# Managed by Ansible - do not edit manually
+# {{ ansible_managed }}
+
+# Listen on all interfaces - the authoritative server runs on {{ pdns_auth_port }},
+# so port 53 is free for this recursor.
+local-address=0.0.0.0
+local-port=53
+
+# Restrict recursive queries to internal networks
+allow-from={{ recursor_allow_from }}
+
+# Forward authoritative zones to the local PowerDNS authoritative container
+forward-zones={{ recursor_forward_zones }}

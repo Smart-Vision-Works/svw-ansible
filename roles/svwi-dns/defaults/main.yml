@@ -8,3 +8,16 @@ dnsgithubkey: "{{ vault.dnsgithubkey | default('') }}"
 dnssqlpw: "{{ vault.dnssqlpw | default('') }}"
 dnsapikey: "{{ vault.dnsapikey | default('') }}"
 dnssalt: "{{ vault.dnssalt | default('') }}"
+
+# Docker compose service names - must match what's in the private DNS repo
+# Verify these against /opt/svwdns/docker-compose.yml if the role was previously run
+pdns_auth_service: "pdns"
+pdns_recursor_service: "recursor"
+
+# Host port the authoritative server listens on (moved off 53 to avoid recursor conflict)
+pdns_auth_port: 5300
+
+# System-level pdns-recursor configuration
+recursor_conf_path: "/etc/powerdns/recursor.conf"
+recursor_allow_from: "127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16"
+recursor_forward_zones: "svwi.us=127.0.0.1:{{ pdns_auth_port }}"

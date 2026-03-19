@@ -1,3 +1,9 @@
 ---
 - name: Reload systemd
   ansible.builtin.command: systemctl daemon-reload
+
+- name: Restart pdns-recursor
+  ansible.builtin.service:
+    name: pdns-recursor
+    state: restarted
+  become: yes

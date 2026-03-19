@@ -25,6 +25,14 @@
     update_cache: false
   become: yes
 
+- name: Check if Docker is already installed
+  ansible.builtin.command: docker --version
+  register: docker_version_check
+  failed_when: false
+  changed_when: false
+  become: yes
+  when: ansible_virtualization_type != "docker"
+
 - name: Ensure Docker is installed
   ansible.builtin.apt:
     name:
@@ -33,7 +41,49 @@
     state: present
     update_cache: yes
   become: yes
+  when:
+    - ansible_virtualization_type != "docker"
+    - docker_version_check is defined
+    - docker_version_check.rc != 0
+
+# DNS servers don't use Puppet. Remove any leftover puppet apt sources
+# so their expired/missing keys don't break apt-get update.
+- name: Find puppet apt source files
+  ansible.builtin.find:
+    paths: /etc/apt/sources.list.d
+    patterns: "puppet*"
+  register: puppet_apt_sources
+  become: yes
   when: ansible_virtualization_type != "docker"
+
+- name: Remove puppet apt source files
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ puppet_apt_sources.files }}"
+  become: yes
+  when:
+    - ansible_virtualization_type != "docker"
+    - puppet_apt_sources.files | length > 0
+
+- name: Check if system pdns service exists
+  ansible.builtin.command: systemctl cat pdns.service
+  register: pdns_system_service_check
+  failed_when: false
+  changed_when: false
+  become: yes
+  when: ansible_virtualization_type != "docker"
+
+- name: Stop and disable system pdns service
+  ansible.builtin.service:
+    name: pdns
+    state: stopped
+    enabled: no
+  become: yes
+  when:
+    - ansible_virtualization_type != "docker"
+    - pdns_system_service_check is defined
+    - pdns_system_service_check.rc == 0
 
 - name: Ensure SSH directory exists
   ansible.builtin.file:
@@ -75,6 +125,15 @@
   when: dnsgithubkey != ""
 
 
+- name: Deploy docker-compose override to publish auth port {{ pdns_auth_port }}
+  ansible.builtin.template:
+    src: docker-compose.override.yml.j2
+    dest: /opt/svwdns/docker-compose.override.yml
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+
 - name: Write .env file for svwdns
   ansible.builtin.template:
     src: env.j2
@@ -106,11 +165,21 @@
     mode: '0644'
   become: yes
 
-- name: Ensure systemd-resolved is disabled
+- name: Set resolv.conf to Google DNS before stopping systemd-resolved
+  ansible.builtin.copy:
+    content: "nameserver 8.8.8.8\nnameserver 8.8.4.4\n"
+    dest: /etc/resolv.conf
+    force: yes
+  become: yes
+  when: ansible_virtualization_type != "docker"
+
+- name: Stop and disable systemd-resolved
   ansible.builtin.service:
     name: systemd-resolved
+    state: stopped
     enabled: no
   become: yes
+  failed_when: false
   when: ansible_virtualization_type != "docker"
 
 - name: Enable and start Docker service
@@ -159,26 +228,54 @@
     replace: "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '';"
   become: yes
 
+# --- Port conflict fixes ---
+# The Docker recursor and authoritative both tried to bind port 53.
+# Fix: remove the Docker recursor (replaced by system pdns-recursor),
+# and move the authoritative to port {{ pdns_auth_port }}.
+
+- name: Stop Docker recursor container before removing it from compose
+  ansible.builtin.command: docker compose stop {{ pdns_recursor_service }}
+  args:
+    chdir: /opt/svwdns
+  become: yes
+  register: docker_recursor_stop
+  failed_when: false
+  changed_when: "'Stopping' in docker_recursor_stop.stdout"
+  when: ansible_virtualization_type != "docker"
+
+- name: Remove Docker recursor service block from docker-compose.yml
+  ansible.builtin.replace:
+    path: /opt/svwdns/docker-compose.yml
+    regexp: '(?m)^  {{ pdns_recursor_service }}:\n(    .*\n)*'
+    replace: ''
+  become: yes
+
 - name: Check MariaDB root user permissions (if volume exists)
   ansible.builtin.shell: |
     cd /opt/svwdns
-    docker-compose up -d mariadb
+    docker compose up -d mariadb
     sleep 10
-    docker-compose exec -T mariadb mysql -e "SELECT User, Host FROM mysql.user WHERE User='root' AND Host='%';" 2>&1 || echo "PERMISSION_CHECK_FAILED"
+    SQLPW=$(grep SQLROOTPW .env 2>/dev/null | cut -d= -f2)
+    docker compose exec -T mariadb mysql -u root ${SQLPW:+-p"$SQLPW"} \
+      -e "SELECT User, Host FROM mysql.user WHERE User='root' AND Host='%';" 2>&1 \
+      || echo "PERMISSION_CHECK_FAILED"
   register: mariadb_permission_check
   become: yes
   when: mariadb_volume_exists.rc == 0
   failed_when: false
   changed_when: false
 
+# Only reinit if the MariaDB root user can't connect remotely (permission issue).
+# Deliberately exclude docker_compose_fixed.changed - a compose file change
+# should NEVER wipe the database and destroy zone data.
 - name: Determine if database needs re-initialization
   ansible.builtin.set_fact:
-    needs_db_reinit: "{{ docker_compose_fixed.changed or (mariadb_volume_exists.rc == 0 and (mariadb_permission_check.stdout is search('PERMISSION_CHECK_FAILED') or mariadb_permission_check.stdout is search('ERROR 1130') or mariadb_permission_check.stdout is search('not allowed to connect'))) }}"
+    needs_db_reinit: "{{ mariadb_volume_exists.rc == 0 and (mariadb_permission_check.stdout is search('PERMISSION_CHECK_FAILED') or mariadb_permission_check.stdout is search('ERROR 1130') or mariadb_permission_check.stdout is search('not allowed to connect')) }}"
 
 - name: Stop existing containers if re-initialization needed
   ansible.builtin.shell: |
     cd /opt/svwdns
-    docker-compose down
+    docker compose down
   become: yes
   when: needs_db_reinit
   register: containers_stopped
@@ -193,7 +290,7 @@
 - name: Start containers directly with docker-compose after volume removal
   ansible.builtin.shell: |
     cd /opt/svwdns
-    docker-compose up -d
+    docker compose up -d
   become: yes
   when: volume_removed.changed or containers_stopped.changed
   register: containers_started
@@ -218,6 +315,15 @@
   become: yes
   when: ansible_virtualization_type != "docker" and not containers_started.changed
 
+- name: Remove orphaned containers (e.g. old Docker recursor)
+  ansible.builtin.shell: |
+    cd /opt/svwdns
+    docker compose up -d --remove-orphans
+  become: yes
+  register: compose_orphan_cleanup
+  changed_when: "'Removed' in compose_orphan_cleanup.stderr or 'Removing' in compose_orphan_cleanup.stderr"
+  when: ansible_virtualization_type != "docker"
+
 - name: Wait for MariaDB to initialize
   ansible.builtin.wait_for:
     host: "{{ ansible_default_ipv4.address }}"
@@ -239,7 +345,40 @@
     msg: "{{ root_wildcard_check.stdout }}"
   when: root_wildcard_check.stdout is defined
 
-- name: Set /etc/resolv.conf to use local DNS after containers are running
+# --- System-level pdns-recursor ---
+# Handles recursive queries on port 53 and forwards svwi.us to the
+# Docker authoritative server on port {{ pdns_auth_port }}.
+# Install and start the recursor BEFORE setting resolv.conf to 127.0.0.1
+# so that apt can still resolve hostnames during package installation.
+
+- name: Install pdns-recursor
+  ansible.builtin.apt:
+    name: pdns-recursor
+    state: present
+    update_cache: no
+  become: yes
+  when: ansible_virtualization_type != "docker"
+
+- name: Configure pdns-recursor
+  ansible.builtin.template:
+    src: recursor.conf.j2
+    dest: "{{ recursor_conf_path }}"
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  notify: Restart pdns-recursor
+  when: ansible_virtualization_type != "docker"
+
+- name: Enable and start pdns-recursor
+  ansible.builtin.service:
+    name: pdns-recursor
+    state: started
+    enabled: yes
+  become: yes
+  when: ansible_virtualization_type != "docker"
+
+- name: Set /etc/resolv.conf to use local DNS after recursor is running
   ansible.builtin.copy:
     content: "nameserver 127.0.0.1"
     dest: /etc/resolv.conf
@@ -291,5 +430,5 @@
     user: root
     minute: "0"
     hour: "23"
-    job: "cd /opt/svwdns && /usr/bin/docker-compose up -d certbot"
+    job: "cd /opt/svwdns && /usr/bin/docker compose up -d certbot"
   become: yes

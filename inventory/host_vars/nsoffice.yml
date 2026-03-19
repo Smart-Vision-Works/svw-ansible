@@ -1,0 +1,6 @@
+---
+buddyip: "10.10.1.1"
+sqlid: "103"
+dnshostname: "nsoffice"
+pdns_auth_service: "pdns"
+pdns_recursor_service: "pdns-recursor"

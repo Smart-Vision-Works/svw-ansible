@@ -37,29 +37,21 @@
     force: yes
   become: yes
   register: svw_key_result
-
-- name: Remove old SVW package repo key if asc changed
-  ansible.builtin.file:
-    path: /usr/share/keyrings/svw.gpg
-    state: absent
-  become: yes
-  when: svw_key_result.changed
+  ignore_errors: yes
 
 - name: Add SVW package repo key
-  ansible.builtin.command:
-    cmd: >
-      gpg
-        --batch
-        --no-default-keyring
-        --dearmor
-        -o /usr/share/keyrings/svw.gpg
-        /usr/share/keyrings/svw.asc
-    creates: '/usr/share/keyrings/svw.gpg'
+  ansible.builtin.shell: |
+    rm -f /usr/share/keyrings/svw.gpg
+    gpg --batch --no-default-keyring --dearmor \
+        -o /usr/share/keyrings/svw.gpg \
+        /usr/share/keyrings/svw.asc 2>/dev/null \
+      || cp /usr/share/keyrings/svw.asc /usr/share/keyrings/svw.gpg
   become: yes
+  changed_when: svw_key_result.changed
 
 - name: Install SVW package repo
   ansible.builtin.apt_repository:
-    repo: 'deb [arch=amd64 signed-by=/usr/share/keyrings/svw.gpg] https://repo.smartvisionworks.com/jammy  jammy main'
+    repo: 'deb [arch=amd64 signed-by=/usr/share/keyrings/svw.gpg] https://repo.smartvisionworks.com/jammy jammy main'
     state: present
     filename: svw
     update_cache: yes
@@ -104,6 +96,7 @@
     force: yes
   become: yes
   register: sentinelagent_result
+  ignore_errors: yes
 
 # - name: Install SVW package repo
 #   ansible.builtin.apt_repository:

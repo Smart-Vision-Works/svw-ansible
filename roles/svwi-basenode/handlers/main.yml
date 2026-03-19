@@ -11,3 +11,4 @@
 - name: Update apt cache
   ansible.builtin.command:
     cmd: apt-get update
+  become: yes
