@@ -7,3 +7,9 @@
     name: pdns-recursor
     state: restarted
   become: yes
+
+- name: Restart Docker daemon
+  ansible.builtin.service:
+    name: docker
+    state: restarted
+  become: yes

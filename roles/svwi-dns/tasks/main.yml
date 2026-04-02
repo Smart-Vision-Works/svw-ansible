@@ -182,6 +182,20 @@
   failed_when: false
   when: ansible_virtualization_type != "docker"
 
+- name: Configure Docker daemon DNS so containers can resolve external names
+  ansible.builtin.copy:
+    content: |
+      {
+        "dns": ["8.8.8.8", "8.8.4.4"]
+      }
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  notify: Restart Docker daemon
+  when: ansible_virtualization_type != "docker"
+
 - name: Enable and start Docker service
   ansible.builtin.service:
     name: docker
