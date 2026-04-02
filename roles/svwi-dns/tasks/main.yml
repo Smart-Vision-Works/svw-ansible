@@ -159,6 +159,9 @@
       server-id = {{ sqlid }}
       log-bin = mysql-bin
       binlog-format = ROW
+      # Only replicate the DNS zone database - not powerdnsadmin (sessions, etc.)
+      replicate-do-db = powerdns
+      replicate-ignore-db = powerdnsadmin
     dest: /opt/svwdns/server.cnf
     owner: root
     group: root
