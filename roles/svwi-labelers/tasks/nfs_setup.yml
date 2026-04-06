@@ -1,5 +1,11 @@
 ---
 # NFS Mount Setup
+- name: Install NFS client utilities
+  ansible.builtin.package:
+    name: nfs-common
+    state: present
+  become: true
+
 - name: Create NFS mount directories
   ansible.builtin.file:
     path: "{{ item.path }}"

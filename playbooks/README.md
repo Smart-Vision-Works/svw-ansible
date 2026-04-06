@@ -64,7 +64,67 @@ ansible-playbook -i ../inventory.ini labelers-nfs.yml
 **Quick Commands:**
 ```bash
 ansible-playbook -i ../inventory.ini labelers-users.yml
+
+this one also works:
+
+
+ cd ~/Code/svw-ansible && ansible-playbook -i inventory/hosts playbooks/labelers-users.yml
+
+
 ```
+
+---
+
+### 📊 Landscape Server
+
+#### `landscape-server.yml`
+**Purpose:** Deploy Canonical Landscape server for Ubuntu system management  
+**Target Hosts:** `landscape-server` group  
+**Key Features:**
+- PostgreSQL 16 database setup
+- Landscape server quickstart installation
+- Azure AD OAuth integration (optional)
+- GCP backup system via Vault
+- Nginx reverse proxy
+- Client management tools
+
+**Quick Commands:**
+```bash
+# Deploy landscape server
+ansible-playbook -i ../inventory.ini landscape-server.yml --ask-vault-pass --ask-become-pass
+
+# Or use wrapper script
+bash deploy-landscape.sh
+```
+
+**Utility Scripts:**
+
+**`fix-landscape-backup.sh`**
+```bash
+# Fix broken backup system (permissions, cron, vault agent)
+bash fix-landscape-backup.sh
+```
+
+**`verify-landscape-backup.sh`**
+```bash
+# Verify backup configuration and test
+bash verify-landscape-backup.sh
+```
+
+**`reconnect-landscape-client.sh`**
+```bash
+# Reconnect client to new server (for migrated machines)
+# Run on the CLIENT machine as root:
+sudo bash reconnect-landscape-client.sh lds.svwi.us "Smart Vision Works" "REGISTRATION_KEY"
+
+# For HTTP (no SSL):
+sudo bash reconnect-landscape-client.sh 10.10.7.242 "Default" "KEY" --insecure
+```
+
+**Documentation:** 
+- Role README: `roles/svwi-landscape/README.md`
+- Azure OAuth setup: `LANDSCAPE_AZURE_OAUTH.md`
+- Deployment guide: `LANDSCAPE_DEPLOYMENT.md`
 
 ---
 
