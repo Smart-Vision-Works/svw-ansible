@@ -11,9 +11,6 @@
           - admins
           - docker
 
-      - name: 'brodriguez'
-        ensure: absent
-
       - name: 'swhitlock'
         password_hash: '$y$j9T$e1aw3XBK091nWLcGQ8LVx0$8a9umjk6thF3Z3D6pTzaOGGz7tP/q35tPr7gW1s2mQ5'
         ssh_keys: |
@@ -38,10 +35,6 @@
           - admins
           - docker
 
-      - name: 'sgardner'
-        ensure: 'absent'
-
-
       - name: 'ejones'
         password_hash: '$y$j9T$L6efuBwua3o3fZAKwF1BU.$8gnsjfeFE8mDKl/ayOKVLOWJ3D3BxoL4tLtuT0CkDP7'
         groups:
@@ -51,8 +44,16 @@
         ensure: 'absent'
 
       - name: 'klillywhite'
-        ssh_keys: |
-          ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIRovWoY7OuwRkKVKpmIRKBcIpSFuAJ3juAnCaZQXz7E kfrance@wayne
+        ensure: 'absent'
+
+      - name: 'agiles'
+        ensure: 'absent'
+
+      - name: 'brodriguez'
+        ensure: absent
+
+      - name: 'sgardner'
+        ensure: 'absent'
 
       - name: 'labeler'
         groups:
