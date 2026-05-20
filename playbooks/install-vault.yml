@@ -1,0 +1,28 @@
+---
+- name: Configure Vault servers
+  hosts: vault-servers
+  become: true
+
+  tasks:
+    - name: Load vault variables
+      ansible.builtin.include_vars:
+        file: ../vault.yml
+        name: vault
+
+    - name: Include admin users
+      ansible.builtin.include_role:
+        name: svwi-users
+        tasks_from: admins.yml
+
+    - name: Include service users
+      ansible.builtin.include_role:
+        name: svwi-users
+        tasks_from: service.yml
+
+    - name: Include svwi-basenode role
+      ansible.builtin.include_role:
+        name: svwi-basenode
+
+    - name: Include svwi-vault role
+      ansible.builtin.include_role:
+        name: svwi-vault

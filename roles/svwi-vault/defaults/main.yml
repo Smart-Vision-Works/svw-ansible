@@ -1,0 +1,4 @@
+---
+vault_version: ""
+vault_listen_address: "0.0.0.0"
+vault_is_gcp: true

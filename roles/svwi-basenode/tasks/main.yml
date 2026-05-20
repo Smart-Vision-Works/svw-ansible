@@ -1,10 +1,11 @@
+---
 - name: Update apt cache
   ansible.builtin.apt:
     update_cache: true
   ignore_errors: true
 
 - name: Install base packages
-  ansible.builtin.package:
+  ansible.builtin.apt:
     name:
       - whois
       - jq
@@ -22,55 +23,52 @@
       - ubuntu-advantage-tools
       - gnupg
     state: present
-  become: yes
+  become: true
 
 - name: Set default editor to Neovim
   community.general.alternatives:
     name: editor
     path: /usr/bin/nvim
-  become: yes
+  become: true
 
-- name: Download and install Google Cloud SDK GPG key
-  ansible.builtin.shell: |
-    curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+- name: Add Google Cloud SDK GPG key
+  ansible.builtin.shell: >
+    curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg |
+    gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg &&
     chmod 644 /usr/share/keyrings/cloud.google.gpg
   args:
     creates: /usr/share/keyrings/cloud.google.gpg
-  become: yes
+  become: true
 
 - name: Add Google Cloud SDK repository
   ansible.builtin.apt_repository:
     repo: 'deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main'
     state: present
     filename: google-cloud-sdk
-    update_cache: yes
-  become: yes
+    update_cache: true
+  become: true
   register: gcloud_repo_result
   failed_when: false
 
-- name: Debug Google Cloud SDK repository addition
-  ansible.builtin.debug:
-    var: gcloud_repo_result
-  when: gcloud_repo_result.failed | default(false)
-
-- name: Install google-cloud-cli (includes apt-transport-artifact-registry)
-  ansible.builtin.package:
+- name: Install google-cloud-cli
+  ansible.builtin.apt:
     name: google-cloud-cli
     state: present
-  become: yes
+  become: true
+  failed_when: false
 
 - name: Remove old SVW repository configuration
   ansible.builtin.file:
     path: /etc/apt/sources.list.d/svw.list
     state: absent
-  become: yes
+  become: true
   notify: Update apt cache
 
 - name: Remove old SVW GPG keys
   ansible.builtin.file:
     path: "{{ item }}"
     state: absent
-  become: yes
+  become: true
   loop:
     - /usr/share/keyrings/svw.gpg
     - /usr/share/keyrings/svw.asc
@@ -81,66 +79,43 @@
     repo: 'deb ar+https://us-west1-apt.pkg.dev/projects/svw-proper apt-repo main'
     state: present
     filename: svw-artifact-registry
-    update_cache: yes
-  become: yes
+    update_cache: true
+  become: true
   register: artifact_repo_result
   failed_when: false
 
-- name: Debug Artifact Registry repository addition
-  ansible.builtin.debug:
-    var: artifact_repo_result
-  when: artifact_repo_result.failed | default(false)
-
 - name: Install Landscape client
-  ansible.builtin.package:
+  ansible.builtin.apt:
     name: landscape-client
-    state: latest
-  become: yes
+    state: present
+  become: true
 
 - name: Configure Landscape client
   ansible.builtin.template:
-    src: 'ls-client.conf.j2'
-    dest: '/etc/landscape/client.conf'
-    owner: 'landscape'
+    src: ls-client.conf.j2
+    dest: /etc/landscape/client.conf
+    owner: landscape
     mode: '0600'
-  become: yes
-  # notify: Restart Landscape client
+  become: true
+  notify: Restart Landscape client
 
-- name: Add landcape-client configuration file
+- name: Place landscape-client defaults file
   ansible.builtin.copy:
-    dest: '/etc/default/landscape-client'
-    src: 'landscape-client'
-    owner: 'root'
-    group: 'root'
+    dest: /etc/default/landscape-client
+    src: landscape-client
+    owner: root
+    group: root
     mode: '0644'
-  become: yes
-  register: landscape_client_config_result
+  become: true
+  notify: Restart Landscape client
 
-# - name: Get Landscape service running
-#   ansible.builtin.systemd:
-#     name: landscape-client
-#     state: started
-#     enabled: true
-
-- name: Install sentinel agent
-  ansible.builtin.package:
-    name: sentinelagent
-    state: present
-    update_cache: yes
-    force: yes
-  become: yes
-  register: sentinelagent_result
-
-- name: Add SentinelOne management token
-  ansible.builtin.command: >
-    /opt/sentinelone/bin/sentinelctl management token set {{ sentinel_token }}
-  args:
-    warn: false
-  become: yes
-  register: sentinel_token_result
-  when:
-    - sentinel_token is defined
-    - sentinelagent_result.changed
+- name: Ensure landscape-client is running and enabled
+  ansible.builtin.systemd:
+    name: landscape-client
+    state: started
+    enabled: true
+  become: true
+  failed_when: false
 
 - name: Add LetsEncrypt CAs
   ansible.builtin.copy:
@@ -149,7 +124,7 @@
     owner: root
     group: root
     mode: '0644'
-  become: yes
+  become: true
   loop:
     - e5
     - e6
@@ -160,14 +135,79 @@
     - r11
   notify: Update CA certificates
 
-- name: Pro Attach
+- name: Gather package facts
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: Copy sentinelagent deb to remote
+  ansible.builtin.copy:
+    src: sentinelagent.deb
+    dest: /tmp/sentinelagent.deb
+    mode: '0644'
+  become: true
+  when: "'sentinelagent' not in ansible_facts.packages"
+
+- name: Install sentinelagent from deb
+  ansible.builtin.apt:
+    deb: /tmp/sentinelagent.deb
+  become: true
+  when: "'sentinelagent' not in ansible_facts.packages"
+  register: sentinel_install_result
+
+- name: Set SentinelOne management token
   ansible.builtin.command: >
-    /usr/bin/pro attach {{ ubuntu_pro_key }}
-  args:
-    warn: false
-  become: yes
+    /opt/sentinelone/bin/sentinelctl management token set {{ vault.sentinel_token }}
+  become: true
   when:
-    - ubuntu_pro_key is defined
-    - landscape_client_config_result.changed
+    - sentinel_install_result is defined
+    - sentinel_install_result is changed
+    - "'sentinel_token' in vault"
+    - vault.sentinel_token | length > 0
+
+- name: Start SentinelOne agent
+  ansible.builtin.command: /opt/sentinelone/bin/sentinelctl control start
+  become: true
+  when:
+    - sentinel_install_result is defined
+    - sentinel_install_result is changed
+
+- name: Check Ubuntu Pro status
+  ansible.builtin.command: pro status
+  register: pro_status_initial
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Attach Ubuntu Pro subscription
+  ansible.builtin.command: "pro attach {{ vault.ubuntu_pro_key }}"
+  become: true
+  when:
+    - "'ubuntu_pro_key' in vault"
+    - vault.ubuntu_pro_key | length > 0
+    - pro_status_initial.stdout is not search('Account: Smart Vision Works')
   register: pro_attach_result
   changed_when: pro_attach_result.rc == 0
+  failed_when: pro_attach_result.rc != 0 and 'already attached' not in (pro_attach_result.stderr | default(''))
+
+- name: Refresh Ubuntu Pro status
+  ansible.builtin.command: pro status
+  register: pro_status
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Enable Ubuntu Pro esm-apps
+  ansible.builtin.command: pro enable esm-apps --assume-yes
+  become: true
+  when: pro_status.stdout | default('') is not search('esm-apps\s+yes\s+enabled')
+  register: pro_esm_apps_result
+  changed_when: pro_esm_apps_result.rc == 0
+  failed_when: false
+
+- name: Enable Ubuntu Pro esm-infra
+  ansible.builtin.command: pro enable esm-infra --assume-yes
+  become: true
+  when: pro_status.stdout | default('') is not search('esm-infra\s+yes\s+enabled')
+  register: pro_esm_infra_result
+  changed_when: pro_esm_infra_result.rc == 0
+  failed_when: false

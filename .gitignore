@@ -18,3 +18,7 @@ server.cnf
 
 # Test files
 /.vagrant
+
+# Large binary files tracked outside git
+*.deb
+roles/svwi-vault/files/vault-plugin-secrets-*

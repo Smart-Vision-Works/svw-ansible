@@ -4,27 +4,45 @@
     name: hashicorp
     state: present
 
-- name: Add ssl-cert group
+- name: Ensure ssl-cert group exists
   ansible.builtin.group:
     name: ssl-cert
     state: present
 
-- name: Create Vault user
+- name: Add HashiCorp GPG key
+  ansible.builtin.shell: >
+    curl -fsSL https://apt.releases.hashicorp.com/gpg |
+    gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+  args:
+    creates: /usr/share/keyrings/hashicorp-archive-keyring.gpg
+
+- name: Add HashiCorp apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com {{ ansible_distribution_release }} main"
+    filename: hashicorp
+    state: present
+    update_cache: true
+
+- name: Install Vault package
+  ansible.builtin.apt:
+    name: "{{ 'vault=' + vault_version if vault_version else 'vault' }}"
+    state: present
+
+- name: Ensure vault user is in hashicorp and ssl-cert groups
   ansible.builtin.user:
     name: vault
-    groups: ssl-cert,hashicorp
-    state: present
-    append: yes
-    home: /home/vault
+    groups: hashicorp,ssl-cert
+    append: true
 
-- name: Install Vault
-  ansible.builtin.apt:
-    name: vault={{ vault_version | default('1.18.3-1') }}
-    state: present
-    update_cache: yes
-  when: ansible_os_family == "Debian"
+- name: Ensure /home/vault exists
+  ansible.builtin.file:
+    path: /home/vault
+    state: directory
+    owner: vault
+    group: hashicorp
+    mode: '0755'
 
-- name: Ensure Vault log directory exists
+- name: Ensure /var/log/vault exists
   ansible.builtin.file:
     path: /var/log/vault
     state: directory
@@ -39,6 +57,14 @@
     owner: vault
     group: hashicorp
     mode: '0755'
+
+- name: Ensure /opt/vault/data exists
+  ansible.builtin.file:
+    path: /opt/vault/data
+    state: directory
+    owner: vault
+    group: hashicorp
+    mode: '0700'
 
 - name: Ensure /opt/vault/templates exists
   ansible.builtin.file:
@@ -56,17 +82,55 @@
     group: hashicorp
     mode: '0755'
 
-- name: Copy vault-profile.sh
+- name: Place vault profile.d script
   ansible.builtin.copy:
     src: vault-profile.sh
     dest: /etc/profile.d/vault.sh
     owner: root
     mode: '0644'
 
-- name: Start and enable Vault service
+- name: Place balena secrets engine plugin
+  ansible.builtin.copy:
+    src: vault-plugin-secrets-balena
+    dest: /opt/vault/plugins/balena
+    owner: vault
+    group: hashicorp
+    mode: '0755'
+
+- name: Place boundary secrets engine plugin
+  ansible.builtin.copy:
+    src: vault-plugin-secrets-boundary
+    dest: /opt/vault/plugins/boundary
+    owner: vault
+    group: hashicorp
+    mode: '0755'
+
+- name: Download and extract boundary secrets engine from GitHub
+  ansible.builtin.unarchive:
+    src: https://github.com/devops-rob/vault-plugin-boundary-secrets-engine/releases/download/v1.0.2/vault-plugin-boundary-secrets-engine_v1.0.2_linux_amd64.zip
+    dest: /opt/vault/plugins
+    remote_src: true
+    creates: /opt/vault/plugins/vault-plugin-boundary-secrets-engine_v1.0.2_linux_amd64
+
+- name: Place gcpckms consul-template template
+  ansible.builtin.copy:
+    src: gcpckms.tpl
+    dest: /opt/vault/templates/gcpckms.tpl
+    owner: vault
+    group: hashicorp
+    mode: '0644'
+
+- name: Place snapshot token consul-template template
+  ansible.builtin.copy:
+    src: snapshot-token.tpl
+    dest: /opt/vault/templates/snapshot-token.tpl
+    owner: vault
+    group: hashicorp
+    mode: '0644'
+
+- name: Enable and start vault service
   ansible.builtin.systemd:
     name: vault
     state: started
-    enabled: yes
-    daemon_reload: yes
-
+    enabled: true
+    daemon_reload: true
