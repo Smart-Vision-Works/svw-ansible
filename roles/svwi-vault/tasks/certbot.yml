@@ -1,0 +1,132 @@
+---
+- name: Ensure snapd is installed
+  ansible.builtin.apt:
+    name: snapd
+    state: present
+
+- name: Ensure snapd socket is running
+  ansible.builtin.systemd:
+    name: snapd.socket
+    state: started
+    enabled: true
+
+- name: Install certbot via snap
+  community.general.snap:
+    name: certbot
+    classic: true
+    state: present
+
+- name: Allow certbot to use plugins with root trust
+  ansible.builtin.command: snap set certbot trust-plugin-with-root=ok
+  changed_when: false
+
+- name: Install certbot-dns-google snap plugin
+  community.general.snap:
+    name: certbot-dns-google
+    state: present
+
+- name: Connect certbot to dns-google plugin
+  ansible.builtin.command: snap connect certbot:plugin certbot-dns-google
+  changed_when: false
+
+- name: Ensure /etc/letsencrypt exists
+  ansible.builtin.file:
+    path: /etc/letsencrypt
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Place GCloud DNS credentials for certbot
+  ansible.builtin.copy:
+    content: "{{ vault.letsencrypt_dns_credentials }}"
+    dest: /etc/letsencrypt/gcloud-dns-credentials.json
+    owner: root
+    group: root
+    mode: '0600'
+  when: "'letsencrypt_dns_credentials' in vault and vault.letsencrypt_dns_credentials | length > 0"
+
+- name: Ensure certbot deploy hook directory exists
+  ansible.builtin.file:
+    path: /etc/letsencrypt/renewal-hooks/deploy
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Place certbot deploy hook for vault
+  ansible.builtin.copy:
+    dest: /etc/letsencrypt/renewal-hooks/deploy/vault.sh
+    owner: root
+    group: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      set -e
+      LIVE_DIR="/etc/letsencrypt/live/vault.svwi.us"
+      VAULT_DIR="/etc/vault.d"
+      [[ " ${RENEWED_DOMAINS} " =~ " vault.svwi.us " ]] || exit 0
+      cp "${LIVE_DIR}/fullchain.pem" "${VAULT_DIR}/fullchain.pem"
+      cp "${LIVE_DIR}/privkey.pem" "${VAULT_DIR}/privkey.pem"
+      chown root:ssl-cert "${VAULT_DIR}/fullchain.pem" "${VAULT_DIR}/privkey.pem"
+      chmod 640 "${VAULT_DIR}/fullchain.pem" "${VAULT_DIR}/privkey.pem"
+      systemctl reload vault 2>/dev/null || systemctl restart vault 2>/dev/null || true
+
+- name: Check current cert validity (30 day window)
+  ansible.builtin.command: >
+    openssl x509 -checkend 2592000 -noout
+    -in /etc/letsencrypt/live/vault.svwi.us/fullchain.pem
+  register: cert_valid
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: "'letsencrypt_dns_credentials' in vault and vault.letsencrypt_dns_credentials | length > 0"
+
+- name: Issue or renew certificate
+  ansible.builtin.command: >
+    certbot certonly
+    --non-interactive
+    --agree-tos
+    --email {{ vault_letsencrypt_email }}
+    --dns-google
+    --dns-google-credentials /etc/letsencrypt/gcloud-dns-credentials.json
+    --dns-google-propagation-seconds 60
+    --cert-name vault.svwi.us
+    -d vault.svwi.us
+    -d {{ ansible_host }}
+  when:
+    - not ansible_check_mode
+    - "'letsencrypt_dns_credentials' in vault and vault.letsencrypt_dns_credentials | length > 0"
+    - cert_valid.rc != 0
+  register: certbot_result
+  changed_when: true
+
+- name: Copy cert files into vault.d after initial issuance
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: ssl-cert
+    mode: '0640'
+    remote_src: true
+  loop:
+    - src: /etc/letsencrypt/live/vault.svwi.us/fullchain.pem
+      dest: /etc/vault.d/fullchain.pem
+    - src: /etc/letsencrypt/live/vault.svwi.us/privkey.pem
+      dest: /etc/vault.d/privkey.pem
+  when:
+    - not ansible_check_mode
+    - certbot_result is defined and certbot_result.changed
+
+- name: Verify certificate covers expected domains
+  ansible.builtin.command: >
+    openssl x509 -noout -text
+    -in /etc/vault.d/fullchain.pem
+  register: cert_text
+  changed_when: false
+  failed_when: >
+    'vault.svwi.us' not in cert_text.stdout or
+    ansible_host not in cert_text.stdout
+  when:
+    - not ansible_check_mode
+    - "'letsencrypt_dns_credentials' in vault and vault.letsencrypt_dns_credentials | length > 0"
