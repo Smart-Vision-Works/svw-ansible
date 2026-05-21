@@ -16,19 +16,6 @@
     classic: true
     state: present
 
-- name: Allow certbot to use plugins with root trust
-  ansible.builtin.command: snap set certbot trust-plugin-with-root=ok
-  changed_when: false
-
-- name: Install certbot-dns-google snap plugin
-  community.general.snap:
-    name: certbot-dns-google
-    state: present
-
-- name: Connect certbot to dns-google plugin
-  ansible.builtin.command: snap connect certbot:plugin certbot-dns-google
-  changed_when: false
-
 - name: Ensure /etc/letsencrypt exists
   ansible.builtin.file:
     path: /etc/letsencrypt
@@ -36,6 +23,17 @@
     owner: root
     group: root
     mode: '0755'
+
+- name: Ensure certbot hook directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - /etc/letsencrypt/renewal-hooks/deploy
+    - /etc/letsencrypt/acme-hooks
 
 - name: Place GCloud DNS credentials for certbot
   ansible.builtin.copy:
@@ -46,13 +44,45 @@
     mode: '0600'
   when: "'letsencrypt_dns_credentials' in vault and vault.letsencrypt_dns_credentials | length > 0"
 
-- name: Ensure certbot deploy hook directory exists
-  ansible.builtin.file:
-    path: /etc/letsencrypt/renewal-hooks/deploy
-    state: directory
+# Auth hook: writes _acme-challenge TXT record to the dedicated acme-svwi zone.
+# CERTBOT_DOMAIN is the domain being certified (e.g. vault.svwi.us).
+# The CNAME in the public svwi zone redirects LE's lookup to acme.svwi.us,
+# so we write to _acme-challenge.<host>.acme.svwi.us. there.
+- name: Place certbot DNS-01 auth hook
+  ansible.builtin.copy:
+    dest: /etc/letsencrypt/acme-hooks/auth.sh
     owner: root
     group: root
-    mode: '0755'
+    mode: '0750'
+    content: |
+      #!/bin/bash
+      set -e
+      export GOOGLE_APPLICATION_CREDENTIALS=/etc/letsencrypt/gcloud-dns-credentials.json
+      SHORT="${CERTBOT_DOMAIN%.svwi.us}"
+      RECORD="_acme-challenge.${SHORT}.acme.svwi.us."
+      # Remove any stale record first (ignore failure if it doesn't exist)
+      gcloud dns record-sets delete "${RECORD}" \
+        --zone=acme-svwi --type=TXT --project=svw-proper 2>/dev/null || true
+      gcloud dns record-sets create "${RECORD}" \
+        --zone=acme-svwi --type=TXT --ttl=60 \
+        --rrdatas="${CERTBOT_VALIDATION}" \
+        --project=svw-proper
+      # Allow time for DNS propagation before LE checks
+      sleep 60
+
+- name: Place certbot DNS-01 cleanup hook
+  ansible.builtin.copy:
+    dest: /etc/letsencrypt/acme-hooks/cleanup.sh
+    owner: root
+    group: root
+    mode: '0750'
+    content: |
+      #!/bin/bash
+      export GOOGLE_APPLICATION_CREDENTIALS=/etc/letsencrypt/gcloud-dns-credentials.json
+      SHORT="${CERTBOT_DOMAIN%.svwi.us}"
+      RECORD="_acme-challenge.${SHORT}.acme.svwi.us."
+      gcloud dns record-sets delete "${RECORD}" \
+        --zone=acme-svwi --type=TXT --project=svw-proper 2>/dev/null || true
 
 - name: Place certbot deploy hook for vault
   ansible.builtin.copy:
@@ -88,9 +118,10 @@
     --non-interactive
     --agree-tos
     --email {{ vault_letsencrypt_email }}
-    --dns-google
-    --dns-google-credentials /etc/letsencrypt/gcloud-dns-credentials.json
-    --dns-google-propagation-seconds 60
+    --manual
+    --preferred-challenges=dns
+    --manual-auth-hook /etc/letsencrypt/acme-hooks/auth.sh
+    --manual-cleanup-hook /etc/letsencrypt/acme-hooks/cleanup.sh
     --cert-name vault.svwi.us
     -d vault.svwi.us
     -d {{ ansible_host }}
