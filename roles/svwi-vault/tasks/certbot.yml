@@ -165,3 +165,59 @@
   when:
     - not ansible_check_mode
     - "'letsencrypt_dns_credentials' in vault and vault.letsencrypt_dns_credentials | length > 0"
+
+- name: Show certificate details from vault.d
+  ansible.builtin.debug:
+    msg: "{{ cert_text.stdout_lines }}"
+  when:
+    - not ansible_check_mode
+    - cert_text is defined
+    - cert_text.stdout is defined
+
+- name: Remove puppet letsencrypt renewal cron jobs
+  ansible.builtin.cron:
+    name: "{{ item }}"
+    state: absent
+  loop:
+    - "letsencrypt renew cron siftai.com"
+    - "letsencrypt renew cron svwi.us"
+
+- name: Schedule certbot renewal at 03:00 daily
+  ansible.builtin.cron:
+    name: certbot-vault-renew
+    user: root
+    minute: "0"
+    hour: "3"
+    job: "/snap/bin/certbot renew --quiet 2>&1 | logger -t certbot"
+    state: present
+
+- name: Restart Vault
+  ansible.builtin.systemd:
+    name: vault
+    state: restarted
+  when: not ansible_check_mode
+
+- name: Wait for Vault to accept connections
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: 8200
+    delay: 3
+    timeout: 30
+  delegate_to: localhost
+  when: not ansible_check_mode
+
+- name: Check TLS certificate presented by Vault
+  ansible.builtin.shell: >
+    curl -sv https://{{ ansible_host }}:8200/v1/sys/health 2>&1 || true
+  register: vault_tls_check
+  changed_when: false
+  failed_when: false
+  delegate_to: localhost
+  when: not ansible_check_mode
+
+- name: Show Vault TLS certificate details
+  ansible.builtin.debug:
+    msg: "{{ vault_tls_check.stdout_lines }}"
+  when:
+    - not ansible_check_mode
+    - vault_tls_check is defined

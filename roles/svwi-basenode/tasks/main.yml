@@ -211,3 +211,10 @@
   register: pro_esm_infra_result
   changed_when: pro_esm_infra_result.rc == 0
   failed_when: false
+
+- name: Remove puppet-agent
+  ansible.builtin.apt:
+    name: puppet-agent
+    state: absent
+    purge: true
+  become: true
