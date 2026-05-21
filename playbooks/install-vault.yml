@@ -2,6 +2,7 @@
 - name: Configure Vault servers
   hosts: vault-servers
   become: true
+  serial: 1
 
   tasks:
     - name: Load vault variables

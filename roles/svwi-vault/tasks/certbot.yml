@@ -56,17 +56,19 @@
     content: |
       #!/bin/bash
       set -e
-      export GOOGLE_APPLICATION_CREDENTIALS=/etc/letsencrypt/gcloud-dns-credentials.json
+      SA_KEY=/etc/letsencrypt/gcloud-dns-credentials.json
+      SA_ACCT="vault-letsencrypt@svw-proper.iam.gserviceaccount.com"
+      gcloud auth activate-service-account "${SA_ACCT}" --key-file="${SA_KEY}"
       SHORT="${CERTBOT_DOMAIN%.svwi.us}"
       RECORD="_acme-challenge.${SHORT}.acme.svwi.us."
-      # Remove any stale record first (ignore failure if it doesn't exist)
       gcloud dns record-sets delete "${RECORD}" \
-        --zone=acme-svwi --type=TXT --project=svw-proper 2>/dev/null || true
+        --zone=acme-svwi --type=TXT --project=svw-proper \
+        --account="${SA_ACCT}" 2>/dev/null || true
       gcloud dns record-sets create "${RECORD}" \
         --zone=acme-svwi --type=TXT --ttl=60 \
         --rrdatas="${CERTBOT_VALIDATION}" \
-        --project=svw-proper
-      # Allow time for DNS propagation before LE checks
+        --project=svw-proper \
+        --account="${SA_ACCT}"
       sleep 60
 
 - name: Place certbot DNS-01 cleanup hook
@@ -77,11 +79,14 @@
     mode: '0750'
     content: |
       #!/bin/bash
-      export GOOGLE_APPLICATION_CREDENTIALS=/etc/letsencrypt/gcloud-dns-credentials.json
+      SA_KEY=/etc/letsencrypt/gcloud-dns-credentials.json
+      SA_ACCT="vault-letsencrypt@svw-proper.iam.gserviceaccount.com"
+      gcloud auth activate-service-account "${SA_ACCT}" --key-file="${SA_KEY}" 2>/dev/null
       SHORT="${CERTBOT_DOMAIN%.svwi.us}"
       RECORD="_acme-challenge.${SHORT}.acme.svwi.us."
       gcloud dns record-sets delete "${RECORD}" \
-        --zone=acme-svwi --type=TXT --project=svw-proper 2>/dev/null || true
+        --zone=acme-svwi --type=TXT --project=svw-proper \
+        --account="${SA_ACCT}" 2>/dev/null || true
 
 - name: Place certbot deploy hook for vault
   ansible.builtin.copy:
