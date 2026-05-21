@@ -218,3 +218,18 @@
     state: absent
     purge: true
   become: true
+
+- name: Remove puppet cron header and reboot-check entry
+  ansible.builtin.shell: |
+    current=$(crontab -l 2>/dev/null || true)
+    cleaned=$(printf '%s\n' "$current" | grep -vE '^# HEADER:|# Puppet Name: reboot-if-needed|/opt/check-reboot\.sh')
+    if [ "$current" = "$cleaned" ]; then exit 0; fi
+    if [ -z "$(printf '%s' "$cleaned" | tr -d '[:space:]')" ]; then
+      crontab -r 2>/dev/null || true
+    else
+      printf '%s\n' "$cleaned" | crontab -
+    fi
+    echo changed
+  register: _puppet_cron_base
+  changed_when: "'changed' in _puppet_cron_base.stdout"
+  become: true

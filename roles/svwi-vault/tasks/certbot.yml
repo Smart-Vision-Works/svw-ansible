@@ -174,13 +174,20 @@
     - cert_text is defined
     - cert_text.stdout is defined
 
-- name: Remove puppet letsencrypt renewal cron jobs
-  ansible.builtin.cron:
-    name: "{{ item }}"
-    state: absent
-  loop:
-    - "letsencrypt renew cron siftai.com"
-    - "letsencrypt renew cron svwi.us"
+- name: Remove puppet letsencrypt renewal cron entries
+  ansible.builtin.shell: |
+    current=$(crontab -l 2>/dev/null || true)
+    cleaned=$(printf '%s\n' "$current" | grep -vE '# Puppet Name: letsencrypt|/opt/puppetlabs/puppet/cache/letsencrypt/')
+    if [ "$current" = "$cleaned" ]; then exit 0; fi
+    if [ -z "$(printf '%s' "$cleaned" | tr -d '[:space:]')" ]; then
+      crontab -r 2>/dev/null || true
+    else
+      printf '%s\n' "$cleaned" | crontab -
+    fi
+    echo changed
+  register: _puppet_le_cron
+  changed_when: "'changed' in _puppet_le_cron.stdout"
+  become: true
 
 - name: Schedule certbot renewal at 03:00 daily
   ansible.builtin.cron:
