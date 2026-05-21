@@ -11,10 +11,9 @@
     enabled: true
 
 - name: Install certbot via snap
-  community.general.snap:
-    name: certbot
-    classic: true
-    state: present
+  ansible.builtin.command: snap install --classic certbot
+  args:
+    creates: /snap/bin/certbot
 
 - name: Ensure /etc/letsencrypt exists
   ansible.builtin.file:
