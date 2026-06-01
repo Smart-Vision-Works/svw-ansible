@@ -1,5 +1,38 @@
 ---
 # NFS Mount Setup
+
+# --- Decommissioned mounts ---
+# Both shared NAS hosts are decommissioned. Tasks are idempotent: unmounted is
+# a no-op if already unmounted; lineinfile backrefs only match uncommented lines.
+- name: Unmount decommissioned shared NAS mount
+  ansible.posix.mount:
+    path: /auto/shared
+    state: unmounted
+  become: true
+
+- name: Comment out decommissioned shared NAS entry in /etc/fstab
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: '^(10\.10\.1\.50:/mnt/tank/shared\s+/auto/shared\s+.*)'
+    line: '# \1'
+    backrefs: true
+  become: true
+
+- name: Unmount decommissioned shared_ro NAS mount
+  ansible.posix.mount:
+    path: /auto/shared_ro
+    state: unmounted
+  become: true
+
+- name: Comment out decommissioned shared_ro NAS entry in /etc/fstab
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: '^(10\.8\.7\.246:/mnt/tank/shared\s+/auto/shared_ro\s+.*)'
+    line: '# \1'
+    backrefs: true
+  become: true
+
+# --- Active mounts ---
 - name: Create NFS mount directories
   ansible.builtin.file:
     path: "{{ item.path }}"
@@ -7,6 +40,7 @@
     mode: '0755'
   loop: "{{ nfs_mounts }}"
   become: true
+  when: item.path not in (ansible_mounts | map(attribute='mount') | list)
 
 - name: Configure NFS mounts
   ansible.posix.mount:
@@ -21,7 +55,7 @@
 
 - name: Copy mount check script
   ansible.builtin.copy:
-    src: checkMount.sh
+    src: "{{ labelers_role_files }}/checkMount.sh"
     dest: /usr/local/bin/checkMount.sh
     owner: root
     group: root

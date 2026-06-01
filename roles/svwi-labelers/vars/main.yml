@@ -1,4 +1,9 @@
 ---
+# Resolved in role context where role_path is set. When nfs_setup.yml is
+# invoked via include_tasks from a playbook, the playbook must supply this
+# variable via vars: instead (since role_path is undefined outside a role).
+labelers_role_files: "{{ role_path }}/files"
+
 # Package Lists
 labeler_packages:
   - mongodb-org-shell

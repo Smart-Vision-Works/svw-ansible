@@ -32,7 +32,7 @@ vault3 ansible_host=vault3.svwi.us
 [labeler-machines]
 svw-ls-00 ansible_host=10.10.16.100
 svw-ls-01 ansible_host=10.10.16.101
-svw-ls-02 ansible_host=10.10.16.125 # fix this one 
+svw-ls-02 ansible_host=10.10.16.102
 svw-ls-03 ansible_host=10.10.16.103
 svw-ls-04 ansible_host=10.10.16.104
 svw-ls-05 ansible_host=10.10.16.105
