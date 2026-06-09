@@ -1,0 +1,34 @@
+---
+# Temporarily remount the decommissioned shared NAS (10.10.1.50) on labelers,
+# singularity, and eureka so they can copy segmentation masks.
+#
+# After copying, re-run labelers-nfs.yml and svwi-datarig.yml (--tags nfs)
+# to restore the decommissioned state.
+- name: Remount shared NAS on labelers, singularity, and eureka
+  hosts: labeler-machines:datarig_servers
+  become: true
+
+  tasks:
+    - name: Ensure /auto/shared directory exists
+      ansible.builtin.file:
+        path: /auto/shared
+        state: directory
+        mode: '0755'
+
+    - name: Mount shared NAS
+      ansible.posix.mount:
+        path: /auto/shared
+        src: "10.10.1.50:/mnt/tank/shared"
+        fstype: nfs
+        opts: "soft,intr"
+        state: mounted
+
+    - name: Verify mount is active
+      ansible.builtin.shell:
+        cmd: df -h /auto/shared
+      register: mount_check
+      changed_when: false
+
+    - name: Display mount status
+      ansible.builtin.debug:
+        msg: "{{ mount_check.stdout_lines }}"
