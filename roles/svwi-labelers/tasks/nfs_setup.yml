@@ -2,22 +2,9 @@
 # NFS Mount Setup
 
 # --- Decommissioned mounts ---
-# Both shared NAS hosts are decommissioned. Tasks are idempotent: unmounted is
-# a no-op if already unmounted; lineinfile backrefs only match uncommented lines.
-- name: Unmount decommissioned shared NAS mount
-  ansible.posix.mount:
-    path: /auto/shared
-    state: unmounted
-  become: true
-
-- name: Comment out decommissioned shared NAS entry in /etc/fstab
-  ansible.builtin.lineinfile:
-    path: /etc/fstab
-    regexp: '^(10\.10\.1\.50:/mnt/tank/shared\s+/auto/shared\s+.*)'
-    line: '# \1'
-    backrefs: true
-  become: true
-
+# 10.8.7.246 (shared_ro backup NAS) is decommissioned. Tasks are idempotent:
+# unmounted is a no-op if already unmounted; lineinfile backrefs only match
+# uncommented lines.
 - name: Unmount decommissioned shared_ro NAS mount
   ansible.posix.mount:
     path: /auto/shared_ro

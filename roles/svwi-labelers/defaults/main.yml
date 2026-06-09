@@ -32,9 +32,12 @@ labeling_pipeline_image: "10.8.7.248:5555/labeling-pipeline/base:latest"
 mongodb_compass_version: "1.45.0"
 
 # NFS Mount Configuration
-# NOTE: 10.10.1.50 (shared NAS) and 10.8.7.246 (shared_ro backup NAS) have been
-# decommissioned. Both are handled by nfs_setup.yml decommission tasks.
+# NOTE: 10.8.7.246 (shared_ro backup NAS) is decommissioned; handled by nfs_setup.yml.
 nfs_mounts:
+  - name: shared
+    src: "10.10.1.50:/mnt/tank/shared"
+    path: "/auto/shared"
+    opts: "ro,soft,intr"
   - name: ds
     src: "10.10.1.51:/mnt/tank/ds"
     path: "/auto/ds"
