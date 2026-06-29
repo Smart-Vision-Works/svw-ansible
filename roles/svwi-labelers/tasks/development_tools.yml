@@ -55,7 +55,7 @@
 
     - name: Copy custom bashrc with micromamba
       ansible.builtin.copy:
-        src: bash.bashrc
+        src: "{{ playbook_dir }}/../roles/svwi-labelers/files/bash.bashrc"
         dest: /etc/bash.bashrc
         backup: true
       become: true

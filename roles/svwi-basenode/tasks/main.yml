@@ -120,8 +120,6 @@
 - name: Add SentinelOne management token
   ansible.builtin.command: >
     /opt/sentinelone/bin/sentinelctl management token set {{ sentinel_token }}
-  args:
-    warn: false
   become: yes
   register: sentinel_token_result
   when:
@@ -149,8 +147,6 @@
 - name: Pro Attach
   ansible.builtin.command: >
     /usr/bin/pro attach {{ ubuntu_pro_key }}
-  args:
-    warn: false
   become: yes
   when:
     - ubuntu_pro_key is defined

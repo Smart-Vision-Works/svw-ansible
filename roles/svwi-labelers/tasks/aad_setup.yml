@@ -2,7 +2,7 @@
 # Azure Active Directory Authentication Setup
 - name: Configure AAD authentication
   ansible.builtin.template:
-    src: aad.conf.j2
+    src: "{{ playbook_dir }}/../roles/svwi-labelers/templates/aad.conf.j2"
     dest: /etc/aad.conf
     owner: root
     group: root

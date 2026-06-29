@@ -11,7 +11,7 @@
 
 - name: Configure SSH for GitHub access
   ansible.builtin.copy:
-    src: ssh-config
+    src: "{{ playbook_dir }}/../roles/svwi-labelers/files/ssh-config"
     dest: /root/.ssh/config
     owner: root
     group: root

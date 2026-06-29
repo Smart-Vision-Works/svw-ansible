@@ -24,10 +24,18 @@
     state: mounted
   loop: "{{ nfs_mounts }}"
   become: true
+  ignore_errors: true
+  register: nfs_mount_results
+
+- name: Report failed NFS mounts
+  ansible.builtin.debug:
+    msg: "WARNING: Failed to mount {{ item.item.src }} at {{ item.item.path }} - check server availability"
+  loop: "{{ nfs_mount_results.results }}"
+  when: item.failed | default(false)
 
 - name: Copy mount check script
   ansible.builtin.copy:
-    src: checkMount.sh
+    src: "{{ playbook_dir }}/../roles/svwi-labelers/files/checkMount.sh"
     dest: /usr/local/bin/checkMount.sh
     owner: root
     group: root

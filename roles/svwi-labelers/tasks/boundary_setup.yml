@@ -2,7 +2,7 @@
 # Boundary Connectivity Setup
 - name: Copy boundary connect service file
   ansible.builtin.copy:
-    src: boundary-connect.service
+    src: "{{ playbook_dir }}/../roles/svwi-labelers/files/boundary-connect.service"
     dest: /etc/systemd/system/boundary-connect.service
     owner: root
     group: root

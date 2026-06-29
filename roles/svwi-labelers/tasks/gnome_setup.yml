@@ -23,7 +23,7 @@
 
 - name: Configure GNOME favorite applications
   ansible.builtin.copy:
-    src: 00-favorite-apps
+    src: "{{ playbook_dir }}/../roles/svwi-labelers/files/00-favorite-apps"
     dest: /etc/dconf/db/ibus.d/00-favorite-apps
     owner: root
     group: root
@@ -42,7 +42,7 @@
 
 - name: Configure dconf locks for favorite apps
   ansible.builtin.copy:
-    src: favorite-apps
+    src: "{{ playbook_dir }}/../roles/svwi-labelers/files/favorite-apps"
     dest: /etc/dconf/db/ibus.d/locks/favorite-apps
     owner: root
     group: root
@@ -63,7 +63,7 @@
 
 - name: Configure monitor settings (if displays fact available)
   ansible.builtin.template:
-    src: monitors.xml.j2
+    src: "{{ playbook_dir }}/../roles/svwi-labelers/templates/monitors.xml.j2"
     dest: /etc/gnome-settings-daemon/xrandr/monitors.xml
     owner: root
     group: root
