@@ -86,3 +86,17 @@
         groups:
           - 'docker'
           - 'labelers'
+      - name: 'rhumes'
+        password_hash: '$y$j9T$cxBTE8ZtL6remG6FsUG1d/$QTErsARktPRj2oqxfhPsXmha34cLChtmSUQirAPATG5'
+        groups:
+          - 'docker'
+          - 'labelers'
+
+      - name: 'cgarret'
+        ensure: 'absent'
+      
+      - name: 'jtownsend@kpmanalytics.com'
+        ensure: 'absent'
+        
+      - name: 'tmoon'
+        ensure: 'absent'
