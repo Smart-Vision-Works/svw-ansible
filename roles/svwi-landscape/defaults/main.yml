@@ -1,0 +1,54 @@
+---
+# Default variables for svwi-landscape role
+postgres_version: "16"
+vault_addr: "https://vault1.svwi.us:8200"
+gcp_bucket: "svw-landscape-backups"
+backup_dir: "/var/backups/postgresql"
+log_file: "/var/log/pg-backup.log"
+
+# PostgreSQL configuration
+max_connections: "400"
+max_prepared_transactions: "400"
+listen_addresses: "*"
+
+# Network configuration
+pg_allowed_network: "10.10.0.0/16"
+
+# Database credentials from vault
+# Using existing vault variable from Puppet: super_user_pw
+landscape_superuser_pw: "{{ vault.super_user_pw | default('changeme') }}"
+
+# These passwords are for internal database access only
+# Landscape Server will manage these users - using secure random defaults
+landscape_user_pw: "{{ vault.landscape_user_pw | default(lookup('password', '/dev/null chars=ascii_letters,digits length=32')) }}"
+landscape_maintenance_pw: "{{ vault.landscape_maintenance_pw | default(lookup('password', '/dev/null chars=ascii_letters,digits length=32')) }}"
+
+# Vault integration (using existing vault variables from Puppet)
+landscape_role_id: "{{ vault['landscape-role-id'] | default('') }}"
+landscape_secret_id: "{{ vault['landscape-secret-id'] | default('') }}"
+
+# Landscape Server admin configuration
+# Note: When using Azure AD OAuth, these are optional
+# Set landscape_skip_admin: true to skip admin user creation and use Azure AD
+landscape_skip_admin: true
+landscape_admin_email: "{{ vault.landscape_admin_email | default('itadmin@smartvisionworks.com') }}"
+landscape_admin_name: "{{ vault.landscape_admin_name | default('Landscape Admin') }}"
+landscape_admin_password: "{{ vault.landscape_admin_password | default('') }}"
+
+# Azure AD OAuth Configuration
+# Enable by setting all three values
+landscape_oidc_enabled: "{{ landscape_oidc_issuer != '' and landscape_oidc_client_id != '' and landscape_oidc_client_secret != '' }}"
+landscape_oidc_issuer: "{{ vault.landscape_oidc_issuer | default('') }}"
+landscape_oidc_client_id: "{{ vault.landscape_oidc_client_id | default('') }}"
+landscape_oidc_client_secret: "{{ vault.landscape_oidc_client_secret | default('') }}"
+# Public URL of the Landscape server - required for correct OAuth redirect URI
+# For Landscape 25.10+, redirect URI is: <landscape_base_url>/new_dashboard/handle-auth/oidc
+landscape_base_url: "{{ vault.landscape_base_url | default('') }}"
+
+# Optional SSL configuration
+# landscape_ssl_cert: "/path/to/cert.pem"
+# landscape_ssl_key: "/path/to/key.pem"
+
+# Optional hash ID secret for production
+# landscape_hash_id_secret: "{{ vault.landscape_hash_id_secret | default('') }}"
+

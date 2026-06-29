@@ -1,0 +1,272 @@
+---
+# Full provisioning playbook for a freshly imaged labeler machine.
+# Run this against a new or re-imaged svw-ls-XX host to bring it to full compliance.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini playbooks/new-labeler-machine.yml \
+#     --limit svw-ls-01 -K -b -u svw -k
+#
+# Covers: basenode, APT repos, NVIDIA drivers, Docker, NFS mounts, labeler users
+
+- name: Provision new labeler machine
+  hosts: labeler-machines
+  become: true
+
+  pre_tasks:
+    - name: Force apt to use IPv4 and set retries (no global IPv6 on labeler machines)
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/99force-ipv4
+        content: |
+          Acquire::ForceIPv4 "true";
+          Acquire::Retries "5";
+          Acquire::http::Timeout "30";
+        owner: root
+        group: root
+        mode: '0644'
+      become: true
+
+    - name: Switch apt mirror from us.archive to global archive.ubuntu.com
+      ansible.builtin.replace:
+        path: /etc/apt/sources.list.d/ubuntu.sources
+        regexp: 'us\.archive\.ubuntu\.com'
+        replace: 'archive.ubuntu.com'
+      become: true
+      ignore_errors: true
+
+    - name: Switch apt mirror in sources.list if present
+      ansible.builtin.replace:
+        path: /etc/apt/sources.list
+        regexp: 'us\.archive\.ubuntu\.com'
+        replace: 'archive.ubuntu.com'
+      become: true
+      ignore_errors: true
+
+    - name: Remove conflicting Microsoft/VS Code apt source files
+      ansible.builtin.shell: |
+        rm -f /etc/apt/sources.list.d/vscode.list
+        rm -f /etc/apt/sources.list.d/vscode.sources
+        rm -f /etc/apt/sources.list.d/microsoft-ubuntu.list
+        rm -f /etc/apt/sources.list.d/microsoft-vscode.list
+        grep -rl "packages.microsoft.com/repos/code" /etc/apt/sources.list.d/ | xargs rm -f
+        grep -rl "packages.microsoft.com/ubuntu" /etc/apt/sources.list.d/ | xargs rm -f
+        exit 0
+      become: true
+
+    - name: Refresh apt cache after mirror change
+      ansible.builtin.apt:
+        update_cache: true
+      become: true
+
+  handlers:
+    - name: restart docker
+      ansible.builtin.systemd:
+        name: docker
+        state: restarted
+        daemon_reload: true
+      become: true
+
+    - name: restart boundary-connect
+      ansible.builtin.systemd:
+        name: boundary-connect
+        state: restarted
+        daemon_reload: true
+      become: true
+      failed_when: false
+
+    - name: update dconf
+      ansible.builtin.command:
+        cmd: /usr/bin/dconf update
+      become: true
+
+    - name: reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+      become: true
+
+    - name: restart ssh
+      ansible.builtin.systemd:
+        name: ssh
+        state: restarted
+      become: true
+
+    - name: update ca certificates
+      ansible.builtin.command:
+        cmd: update-ca-certificates
+      become: true
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+
+    - name: Update CA certificates
+      ansible.builtin.command: update-ca-certificates
+      changed_when: true
+
+  tasks:
+    # -------------------------------------------------------------------------
+    # Vault & variables
+    # -------------------------------------------------------------------------
+    - name: Load vault variables
+      ansible.builtin.include_vars:
+        file: ../vault.yml
+        name: vault
+
+    - name: Load svwi-labelers vars
+      ansible.builtin.include_vars:
+        file: ../roles/svwi-labelers/vars/main.yml
+
+    - name: Load svwi-labelers defaults
+      ansible.builtin.include_vars:
+        file: ../roles/svwi-labelers/defaults/main.yml
+
+    # -------------------------------------------------------------------------
+    # Basenode — packages, SVW repo, Landscape client, SentinelOne
+    # -------------------------------------------------------------------------
+    - name: Basenode setup
+      ansible.builtin.include_role:
+        name: svwi-basenode
+
+    # -------------------------------------------------------------------------
+    # Labeler-specific setup (repos, packages, AAD, GNOME, dev tools, Vault,
+    # Boundary, system maintenance, Git)
+    # -------------------------------------------------------------------------
+    - name: Remove all conflicting Microsoft/VS Code apt source files
+      ansible.builtin.shell: |
+        rm -f /etc/apt/sources.list.d/vscode.list
+        rm -f /etc/apt/sources.list.d/vscode.sources
+        rm -f /etc/apt/sources.list.d/microsoft-ubuntu.list
+        rm -f /etc/apt/sources.list.d/microsoft-vscode.list
+        grep -rl "packages.microsoft.com/repos/code" /etc/apt/sources.list.d/ | xargs rm -f
+        grep -rl "packages.microsoft.com/ubuntu" /etc/apt/sources.list.d/ | xargs rm -f
+        exit 0
+      become: true
+
+    - name: Load kernel modules
+      community.general.modprobe:
+        name: "{{ item }}"
+        state: present
+      loop: "{{ kernel_modules }}"
+      when: ansible_facts['virtualization_type'] != 'docker'
+
+    - name: Remove docker socket overrides
+      ansible.builtin.file:
+        path: /etc/systemd/system/docker.socket.d/socket-overrides.conf
+        state: absent
+      notify: restart docker
+
+    - name: Setup APT repositories
+      ansible.builtin.include_tasks:
+        file: ../roles/svwi-labelers/tasks/repositories.yml
+
+    - name: Install base labeler packages
+      ansible.builtin.package:
+        name: "{{ labeler_packages }}"
+        state: present
+
+    - name: Install AAD packages
+      ansible.builtin.package:
+        name: "{{ aad_packages }}"
+        state: present
+      when: ansible_facts['virtualization_type'] != 'docker'
+
+    - name: Setup AAD authentication
+      ansible.builtin.include_tasks:
+        file: ../roles/svwi-labelers/tasks/aad_setup.yml
+
+    # -------------------------------------------------------------------------
+    # NVIDIA drivers & CUDA
+    # -------------------------------------------------------------------------
+    - name: Setup NVIDIA drivers and CUDA
+      ansible.builtin.include_tasks:
+        file: ../roles/svwi-labelers/tasks/nvidia_setup.yml
+      when: ansible_facts['virtualization_type'] != 'docker'
+
+    # -------------------------------------------------------------------------
+    # Docker
+    # -------------------------------------------------------------------------
+    - name: Setup Docker with NVIDIA Container Toolkit
+      ansible.builtin.include_tasks:
+        file: ../roles/svwi-labelers/tasks/docker_setup.yml
+      when: ansible_facts['virtualization_type'] != 'docker'
+
+    # -------------------------------------------------------------------------
+    # NFS mounts
+    # -------------------------------------------------------------------------
+    - name: Setup NFS mounts
+      ansible.builtin.include_tasks:
+        file: ../roles/svwi-labelers/tasks/nfs_setup.yml
+      when: ansible_facts['virtualization_type'] != 'docker'
+
+    # -------------------------------------------------------------------------
+    # GNOME desktop, dev tools, Vault, Boundary, maintenance, Git
+    # -------------------------------------------------------------------------
+    - name: Setup GNOME desktop
+      ansible.builtin.include_tasks:
+        file: ../roles/svwi-labelers/tasks/gnome_setup.yml
+      when: ansible_facts['virtualization_type'] != 'docker'
+
+    - name: Setup development tools
+      ansible.builtin.include_tasks:
+        file: ../roles/svwi-labelers/tasks/development_tools.yml
+
+    - name: Setup Vault integration
+      ansible.builtin.include_tasks:
+        file: ../roles/svwi-labelers/tasks/vault_setup.yml
+
+    - name: Setup Boundary connectivity
+      ansible.builtin.include_tasks:
+        file: ../roles/svwi-labelers/tasks/boundary_setup.yml
+      when: ansible_facts['virtualization_type'] != 'docker'
+
+    - name: Setup system maintenance
+      ansible.builtin.include_tasks:
+        file: ../roles/svwi-labelers/tasks/system_maintenance.yml
+
+    - name: Setup Git repository access
+      ansible.builtin.include_tasks:
+        file: ../roles/svwi-labelers/tasks/git_setup.yml
+      when: labeling_pipeline_github_key | length > 0
+
+    - name: Enable PAM mkhomedir module
+      ansible.builtin.command:
+        cmd: /usr/sbin/pam-auth-update --enable mkhomedir
+        creates: /var/lib/ansible-exec/pam-auth-update
+
+    # -------------------------------------------------------------------------
+    # Labeler users
+    # -------------------------------------------------------------------------
+    - name: Setup labeler users
+      ansible.builtin.include_role:
+        name: svwi-users
+        tasks_from: labelers
+
+    # -------------------------------------------------------------------------
+    # Summary
+    # -------------------------------------------------------------------------
+    - name: Verify NFS mounts are active
+      ansible.builtin.shell:
+        cmd: df -h | grep -E '/auto/(shared|ds)'
+      register: mount_check
+      changed_when: false
+      failed_when: false
+
+    - name: Verify Docker is running
+      ansible.builtin.command: docker info
+      register: docker_check
+      changed_when: false
+      failed_when: false
+
+    - name: Verify NVIDIA driver
+      ansible.builtin.command: nvidia-smi --query-gpu=driver_version --format=csv,noheader
+      register: nvidia_check
+      changed_when: false
+      failed_when: false
+
+    - name: Provisioning summary
+      ansible.builtin.debug:
+        msg: |
+          === {{ inventory_hostname }} provisioning complete ===
+          NVIDIA driver : {{ nvidia_check.stdout | default('not ready — reboot required') }}
+          Docker        : {{ 'running' if docker_check.rc == 0 else 'NOT running' }}
+          NFS mounts    : {{ mount_check.stdout_lines | default(['none active']) | join(', ') }}
+          NOTE: If NVIDIA driver was just installed, a reboot is required before nvidia-smi will work.

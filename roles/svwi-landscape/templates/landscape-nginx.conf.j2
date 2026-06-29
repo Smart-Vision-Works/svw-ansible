@@ -1,0 +1,195 @@
+upstream landscape_app {
+    server 127.0.0.1:8080;
+}
+
+upstream landscape_api {
+    server 127.0.0.1:9080;
+}
+
+upstream landscape_message {
+    server 127.0.0.1:8090;
+}
+
+upstream landscape_ping {
+    server 127.0.0.1:8070;
+}
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    
+    server_name {{ ansible_fqdn }} {{ ansible_hostname }} _;
+    
+    # Increase client body size for package uploads
+    client_max_body_size 1G;
+    
+    # Landscape web interface
+    location / {
+        proxy_pass http://landscape_app;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # WebSocket support
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        # Timeouts
+        proxy_connect_timeout 600;
+        proxy_send_timeout 600;
+        proxy_read_timeout 600;
+        send_timeout 600;
+    }
+    
+    # Landscape REST API v2 (new dashboard) - must be before /api/ block
+    location /api/v2/ {
+        proxy_pass http://landscape_app;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_connect_timeout 600;
+        proxy_send_timeout 600;
+        proxy_read_timeout 600;
+    }
+
+    # Landscape legacy API
+    location /api/ {
+        proxy_pass http://landscape_api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        proxy_connect_timeout 600;
+        proxy_send_timeout 600;
+        proxy_read_timeout 600;
+    }
+    
+    # Landscape message system (for client connections)
+    location /message-system {
+        proxy_pass http://landscape_message/message-system;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        
+        # Long polling support
+        proxy_buffering off;
+        proxy_connect_timeout 600;
+        proxy_send_timeout 600;
+        proxy_read_timeout 600;
+    }
+    
+    # Landscape ping endpoint
+    location /ping {
+        proxy_pass http://landscape_ping/ping;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        
+        proxy_connect_timeout 10;
+        proxy_send_timeout 10;
+        proxy_read_timeout 10;
+    }
+    
+    # Static files
+    location /static/ {
+        alias /opt/canonical/landscape/canonical/landscape/ui/static/;
+        expires 1d;
+        access_log off;
+    }
+    
+    # Package repository
+    location /repository/ {
+        alias /var/lib/landscape/package/;
+        autoindex off;
+        expires 1h;
+    }
+}
+
+# SSL configuration (optional - uncomment and configure)
+{% if landscape_ssl_cert is defined and landscape_ssl_key is defined %}
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    
+    server_name {{ ansible_fqdn }} {{ ansible_hostname }};
+    
+    ssl_certificate {{ landscape_ssl_cert }};
+    ssl_certificate_key {{ landscape_ssl_key }};
+    
+    # SSL configuration
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    
+    client_max_body_size 1G;
+    
+    # Same location blocks as above
+    location / {
+        proxy_pass http://landscape_app;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        proxy_connect_timeout 600;
+        proxy_send_timeout 600;
+        proxy_read_timeout 600;
+        send_timeout 600;
+    }
+    
+    # Landscape REST API v2 (new dashboard) - must be before /api/ block
+    location /api/v2/ {
+        proxy_pass http://landscape_app;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+
+        proxy_connect_timeout 600;
+        proxy_send_timeout 600;
+        proxy_read_timeout 600;
+    }
+
+    location /api/ {
+        proxy_pass http://landscape_api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+    
+    location /message-system {
+        proxy_pass http://landscape_message/message-system;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_buffering off;
+    }
+    
+    location /ping {
+        proxy_pass http://landscape_ping/ping;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+    
+    location /static/ {
+        alias /opt/canonical/landscape/canonical/landscape/ui/static/;
+        expires 1d;
+        access_log off;
+    }
+    
+    location /repository/ {
+        alias /var/lib/landscape/package/;
+        autoindex off;
+        expires 1h;
+    }
+}
+{% endif %}

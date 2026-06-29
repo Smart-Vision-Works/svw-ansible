@@ -1,0 +1,471 @@
+---
+# PostgreSQL Installation and Configuration
+- name: Add PostgreSQL APT repository key
+  ansible.builtin.apt_key:
+    url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+    state: present
+  become: true
+
+- name: Add PostgreSQL APT repository
+  ansible.builtin.apt_repository:
+    repo: "deb http://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main"
+    state: present
+    filename: pgdg
+    update_cache: yes
+  become: true
+
+- name: Install PostgreSQL {{ postgres_version }} and related packages
+  ansible.builtin.apt:
+    name:
+      - "postgresql-{{ postgres_version }}"
+      - "postgresql-contrib-{{ postgres_version }}"
+      - "postgresql-client-{{ postgres_version }}"
+      - "postgresql-{{ postgres_version }}-debversion"
+      - "postgresql-plpython3-{{ postgres_version }}"
+      - python3-psycopg2
+      - curl
+      - jq
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Install unattended-upgrades
+  ansible.builtin.apt:
+    name: unattended-upgrades
+    state: present
+  become: true
+
+- name: Ensure PostgreSQL is running and enabled
+  ansible.builtin.systemd:
+    name: postgresql
+    state: started
+    enabled: yes
+  become: true
+
+# PostgreSQL Configuration
+- name: Configure PostgreSQL - listen_addresses
+  ansible.builtin.lineinfile:
+    path: "/etc/postgresql/{{ postgres_version }}/main/postgresql.conf"
+    regexp: "^#?listen_addresses"
+    line: "listen_addresses = '{{ listen_addresses }}'"
+    backup: yes
+  become: true
+  notify: restart postgresql
+
+- name: Configure PostgreSQL - max_connections
+  ansible.builtin.lineinfile:
+    path: "/etc/postgresql/{{ postgres_version }}/main/postgresql.conf"
+    regexp: "^#?max_connections"
+    line: "max_connections = {{ max_connections }}"
+    backup: yes
+  become: true
+  notify: restart postgresql
+
+- name: Configure PostgreSQL - max_prepared_transactions
+  ansible.builtin.lineinfile:
+    path: "/etc/postgresql/{{ postgres_version }}/main/postgresql.conf"
+    regexp: "^#?max_prepared_transactions"
+    line: "max_prepared_transactions = {{ max_prepared_transactions }}"
+    backup: yes
+  become: true
+  notify: restart postgresql
+
+- name: Configure pg_hba.conf - allow landscape users from network
+  ansible.builtin.lineinfile:
+    path: "/etc/postgresql/{{ postgres_version }}/main/pg_hba.conf"
+    line: "host    all    landscape,landscape_maintenance,landscape_superuser    {{ pg_allowed_network }}    md5"
+    backup: yes
+  become: true
+  notify: reload postgresql
+
+# Install ACL support for Ansible become operations
+- name: Install ACL package
+  ansible.builtin.apt:
+    name: acl
+    state: present
+  become: true
+
+# Create only the landscape_superuser - quickstart will create the others
+- name: Create landscape_superuser PostgreSQL role
+  community.postgresql.postgresql_user:
+    name: landscape_superuser
+    password: "{{ landscape_superuser_pw }}"
+    role_attr_flags: SUPERUSER,CREATEDB,CREATEROLE
+    state: present
+  become: true
+  become_user: postgres
+  when: landscape_superuser_pw != 'changeme'
+
+# Remove Apache if installed (switching to nginx)
+- name: Stop Apache if running
+  ansible.builtin.systemd:
+    name: apache2
+    state: stopped
+    enabled: no
+  become: true
+  failed_when: false
+
+- name: Remove Apache packages
+  ansible.builtin.apt:
+    name:
+      - apache2
+      - apache2-bin
+      - apache2-data
+      - apache2-utils
+    state: absent
+    autoremove: yes
+  become: true
+  failed_when: false
+
+# Landscape Server Installation using quickstart
+# The quickstart package does EVERYTHING: databases, users, schema, config, services
+- name: Install Landscape Server Quickstart
+  ansible.builtin.apt:
+    name:
+      - landscape-server-quickstart
+      - nginx
+      - python3-psycopg2
+    state: present
+    update_cache: yes
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+  become: true
+
+# Wait for quickstart to complete setup
+- name: Wait for Landscape quickstart setup to complete
+  ansible.builtin.pause:
+    seconds: 30
+
+- name: Ensure all Landscape services are running
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  become: true
+  loop:
+    - landscape-api
+    - landscape-appserver
+    - landscape-async-frontend
+    - landscape-job-handler
+    - landscape-msgserver
+    - landscape-package-search
+    - landscape-package-upload
+    - landscape-pingserver
+  failed_when: false
+
+- name: Remove default nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  become: true
+  notify: restart nginx
+
+- name: Create nginx configuration for Landscape
+  ansible.builtin.template:
+    src: landscape-nginx.conf.j2
+    dest: /etc/nginx/sites-available/landscape
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: restart nginx
+
+- name: Enable Landscape nginx site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/landscape
+    dest: /etc/nginx/sites-enabled/landscape
+    state: link
+  become: true
+  notify: restart nginx
+
+- name: Ensure nginx is running and enabled
+  ansible.builtin.systemd:
+    name: nginx
+    state: started
+    enabled: yes
+  become: true
+
+# Azure OAuth Configuration
+- name: Check if Landscape service config exists
+  ansible.builtin.stat:
+    path: /etc/landscape/service.conf
+  register: landscape_config
+  become: true
+
+- name: Check if appserver section exists in config
+  ansible.builtin.shell: grep -q '^\[appserver\]' /etc/landscape/service.conf
+  register: appserver_section_check
+  failed_when: false
+  changed_when: false
+  become: true
+  when: landscape_config.stat.exists
+
+- name: Determine which section to use for OAuth config
+  ansible.builtin.set_fact:
+    oauth_section: "{{ 'appserver' if appserver_section_check.rc == 0 else 'landscape' }}"
+    oauth_issuer_key: "{{ 'oidc_issuer' if appserver_section_check.rc == 0 else 'oidc-issuer' }}"
+    oauth_client_id_key: "{{ 'oidc_client_id' if appserver_section_check.rc == 0 else 'oidc-client-id' }}"
+    oauth_client_secret_key: "{{ 'oidc_client_secret' if appserver_section_check.rc == 0 else 'oidc-client-secret' }}"
+  when: landscape_config.stat.exists
+
+- name: Add oidc-issuer to Landscape config
+  community.general.ini_file:
+    path: /etc/landscape/service.conf
+    section: "{{ oauth_section }}"
+    option: "{{ oauth_issuer_key }}"
+    value: "{{ landscape_oidc_issuer }}"
+    backup: yes
+  become: true
+  when: 
+    - landscape_config.stat.exists
+    - landscape_oidc_enabled
+  notify: restart landscape-server
+
+- name: Add oidc-client-id to Landscape config
+  community.general.ini_file:
+    path: /etc/landscape/service.conf
+    section: "{{ oauth_section }}"
+    option: "{{ oauth_client_id_key }}"
+    value: "{{ landscape_oidc_client_id }}"
+    backup: yes
+  become: true
+  when: 
+    - landscape_config.stat.exists
+    - landscape_oidc_enabled
+  notify: restart landscape-server
+
+- name: Add oidc-client-secret to Landscape config
+  community.general.ini_file:
+    path: /etc/landscape/service.conf
+    section: "{{ oauth_section }}"
+    option: "{{ oauth_client_secret_key }}"
+    value: "{{ landscape_oidc_client_secret }}"
+    backup: yes
+  become: true
+  when: 
+    - landscape_config.stat.exists
+    - landscape_oidc_enabled
+  notify: restart landscape-server
+
+- name: Set oidc_redirect_uri in standalone config (Landscape 25.10+)
+  community.general.ini_file:
+    path: /opt/canonical/landscape/configs/standalone/service.conf
+    section: appserver
+    option: oidc_redirect_uri
+    value: "{{ landscape_base_url }}/new_dashboard/handle-auth/oidc"
+    backup: yes
+  become: true
+  when:
+    - landscape_oidc_enabled
+    - landscape_base_url != ''
+  notify: restart landscape-server
+
+- name: Ensure gpg-home-path is set in Landscape config
+  community.general.ini_file:
+    path: /etc/landscape/service.conf
+    section: "{{ oauth_section }}"
+    option: "{{ 'gpg_home_path' if oauth_section == 'appserver' else 'gpg-home-path' }}"
+    value: "/var/lib/landscape/landscape-server/gpg"
+    backup: yes
+  become: true
+  when: landscape_config.stat.exists
+  notify: restart landscape-server
+
+- name: Remove Azure OAuth configuration if disabled
+  community.general.ini_file:
+    path: /etc/landscape/service.conf
+    section: "{{ item.section }}"
+    option: "{{ item.option }}"
+    state: absent
+    backup: yes
+  become: true
+  loop:
+    - { section: "landscape", option: "oidc-issuer" }
+    - { section: "landscape", option: "oidc-client-id" }
+    - { section: "landscape", option: "oidc-client-secret" }
+    - { section: "appserver", option: "oidc_issuer" }
+    - { section: "appserver", option: "oidc_client_id" }
+    - { section: "appserver", option: "oidc_client_secret" }
+  when: 
+    - landscape_config.stat.exists
+    - not landscape_oidc_enabled
+  failed_when: false
+  notify: restart landscape-server
+
+# Backup Configuration
+- name: Ensure backup directory exists
+  ansible.builtin.file:
+    path: "{{ backup_dir }}"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: '0750'
+  become: true
+
+- name: Create backup log file
+  ansible.builtin.file:
+    path: "{{ log_file }}"
+    state: touch
+    owner: postgres
+    group: postgres
+    mode: '0640'
+  become: true
+
+- name: Install PostgreSQL backup script
+  ansible.builtin.template:
+    src: db-backup.sh.j2
+    dest: /usr/local/bin/pg-backup.sh
+    owner: postgres
+    group: postgres
+    mode: '0750'
+  become: true
+
+# Vault Agent Configuration (if credentials are provided)
+- name: Check if vault agent setup is needed
+  ansible.builtin.set_fact:
+    setup_vault_agent: "{{ landscape_role_id != '' and landscape_secret_id != '' }}"
+
+- name: Create Vault agent configuration directory
+  ansible.builtin.file:
+    path: /etc/vault-agent.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+  when: setup_vault_agent
+
+- name: Create Vault token directory for postgres user
+  ansible.builtin.file:
+    path: /run/vault-postgres
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: '0750'
+  become: true
+  when: setup_vault_agent
+
+- name: Create Vault agent config for landscape
+  ansible.builtin.copy:
+    content: |
+      pid_file = "/run/vault-postgres/landscape-vault-agent.pid"
+      
+      vault {
+        address = "{{ vault_addr }}"
+      }
+      
+      auto_auth {
+        method {
+          type = "approle"
+          
+          config = {
+            role_id_file_path = "/etc/vault-agent.d/landscape-role-id"
+            secret_id_file_path = "/etc/vault-agent.d/landscape-secret-id"
+            remove_secret_id_file_after_reading = false
+          }
+        }
+        
+        sink {
+          type = "file"
+          config = {
+            path = "/run/vault-postgres/landscape.token"
+            mode = 0640
+          }
+        }
+      }
+    dest: /etc/vault-agent.d/landscape-config.hcl
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  when: setup_vault_agent
+
+- name: Create landscape role_id file
+  ansible.builtin.copy:
+    content: "{{ landscape_role_id }}"
+    dest: /etc/vault-agent.d/landscape-role-id
+    owner: postgres
+    group: postgres
+    mode: '0640'
+  become: true
+  when: setup_vault_agent
+  no_log: true
+
+- name: Create landscape secret_id file
+  ansible.builtin.copy:
+    content: "{{ landscape_secret_id }}"
+    dest: /etc/vault-agent.d/landscape-secret-id
+    owner: postgres
+    group: postgres
+    mode: '0640'
+  become: true
+  when: setup_vault_agent
+  no_log: true
+
+- name: Add HashiCorp GPG key
+  ansible.builtin.apt_key:
+    url: https://apt.releases.hashicorp.com/gpg
+    state: present
+  become: true
+  when: setup_vault_agent
+
+- name: Add HashiCorp repository
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64] https://apt.releases.hashicorp.com {{ ansible_distribution_release }} main"
+    state: present
+    filename: hashicorp
+    update_cache: yes
+  become: true
+  when: setup_vault_agent
+
+- name: Install Vault (for vault agent)
+  ansible.builtin.apt:
+    name: vault
+    state: present
+  become: true
+  when: setup_vault_agent
+
+- name: Create landscape-vault-agent systemd service
+  ansible.builtin.copy:
+    content: |
+      [Unit]
+      Description=Vault Agent for Landscape PostgreSQL
+      After=network.target
+      
+      [Service]
+      Type=simple
+      User=postgres
+      Group=postgres
+      ExecStart=/usr/bin/vault agent -config=/etc/vault-agent.d/landscape-config.hcl
+      Restart=on-failure
+      RestartSec=5
+      
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/landscape-vault-agent.service
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  when: setup_vault_agent
+  notify: restart landscape-vault-agent
+
+- name: Enable and start landscape-vault-agent
+  ansible.builtin.systemd:
+    name: landscape-vault-agent
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  become: true
+  when: setup_vault_agent
+
+# Backup Cron Job
+- name: Create PostgreSQL backup cron job
+  ansible.builtin.cron:
+    name: "pg-backup"
+    user: postgres
+    minute: "0"
+    hour: "2"
+    job: "/usr/local/bin/pg-backup.sh"
+  become: true
+

@@ -1,0 +1,41 @@
+---
+- name: restart postgresql
+  ansible.builtin.systemd:
+    name: postgresql
+    state: restarted
+  become: true
+
+- name: reload postgresql
+  ansible.builtin.systemd:
+    name: postgresql
+    state: reloaded
+  become: true
+
+- name: restart landscape-vault-agent
+  ansible.builtin.systemd:
+    name: landscape-vault-agent
+    state: restarted
+  become: true
+
+- name: restart nginx
+  ansible.builtin.systemd:
+    name: nginx
+    state: restarted
+  become: true
+
+- name: restart landscape-server
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: restarted
+  become: true
+  loop:
+    - landscape-api
+    - landscape-appserver
+    - landscape-async-frontend
+    - landscape-job-handler
+    - landscape-msgserver
+    - landscape-package-search
+    - landscape-package-upload
+    - landscape-pingserver
+  failed_when: false
+

@@ -1,0 +1,64 @@
+[landscape]
+# Landscape Server Configuration
+
+# Store configuration
+store = postgres://landscape:{{ landscape_user_pw }}@localhost/landscape-standalone-main
+
+# Message system (RabbitMQ)
+message-system = rabbit
+message-system-host = localhost
+
+# Azure AD OAuth Configuration
+{% if landscape_oidc_enabled %}
+oidc-issuer = {{ landscape_oidc_issuer }}
+oidc-client-id = {{ landscape_oidc_client_id }}
+oidc-client-secret = {{ landscape_oidc_client_secret }}
+{% endif %}
+
+# Optional: SSL/TLS configuration
+{% if landscape_ssl_cert is defined and landscape_ssl_key is defined %}
+ssl-public-key = {{ landscape_ssl_cert }}
+ssl-private-key = {{ landscape_ssl_key }}
+{% endif %}
+
+# Account database
+account-1 = postgres://landscape:{{ landscape_user_pw }}@localhost/landscape-standalone-account-1
+
+# Package database
+package = postgres://landscape:{{ landscape_user_pw }}@localhost/landscape-standalone-package
+
+# Resource database
+resource-1 = postgres://landscape:{{ landscape_user_pw }}@localhost/landscape-standalone-resource-1
+
+# Session database
+session = postgres://landscape:{{ landscape_user_pw }}@localhost/landscape-standalone-session
+
+# Knowledge database  
+knowledge = postgres://landscape:{{ landscape_user_pw }}@localhost/landscape-standalone-knowledge
+
+# Maintenance user for migrations (Ubuntu 24.04+)
+maintenance-user = landscape_maintenance
+maintenance-password = {{ landscape_maintenance_pw }}
+
+# Superuser for initial setup
+admin-user = landscape_superuser
+admin-password = {{ landscape_superuser_pw }}
+
+# Web interface
+http-port = 80
+https-port = 443
+
+# Log settings
+log-dir = /var/log/landscape
+log-level = info
+
+# Package repository path
+package-path = /var/lib/landscape/package
+
+# Hash ID secret (for generating unique IDs)
+{% if landscape_hash_id_secret is defined %}
+hash-id-secret = {{ landscape_hash_id_secret }}
+{% else %}
+# hash-id-secret = CHANGE_ME_IN_PRODUCTION
+{% endif %}
+
