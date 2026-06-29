@@ -11,19 +11,40 @@
     state: present
   become: true
 
-- name: Add Docker APT key
-  ansible.builtin.get_url:
-    url: https://download.docker.com/linux/ubuntu/gpg
-    dest: /etc/apt/keyrings/docker.asc
-    mode: '0644'
+- name: Ensure /etc/apt/keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
   become: true
+
+- name: Remove stale Docker repository entries
+  ansible.builtin.shell:
+    cmd: |
+      grep -rl "download.docker.com" /etc/apt/sources.list.d/ 2>/dev/null | xargs -r rm -f || true
+      rm -f /etc/apt/sources.list.d/docker*.list* 2>/dev/null || true
+  become: true
+  changed_when: false
+
+- name: Download and convert Docker GPG key
+  ansible.builtin.shell:
+    cmd: curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --batch --yes --no-tty --dearmor -o /etc/apt/keyrings/docker.gpg
+  become: true
+  changed_when: true
 
 - name: Add Docker repository
   ansible.builtin.apt_repository:
-    repo: "deb [arch={{ ansible_architecture | replace('x86_64', 'amd64') | replace('aarch64', 'arm64') }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    repo: "deb [arch={{ ansible_architecture | replace('x86_64', 'amd64') | replace('aarch64', 'arm64') }} signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
     state: present
+    update_cache: false
+  become: true
+
+- name: Update APT cache after adding Docker repository
+  ansible.builtin.apt:
     update_cache: true
   become: true
+  register: docker_apt_update
+  failed_when: false
 
 - name: Install Docker packages
   ansible.builtin.package:
@@ -64,9 +85,23 @@
     daemon_reload: true
   become: true
 
+- name: Wait for Docker socket to be ready
+  ansible.builtin.wait_for:
+    path: /var/run/docker.sock
+    state: present
+    timeout: 30
+  become: true
+
 - name: Pull labeling pipeline Docker image
   community.docker.docker_image:
     name: "{{ labeling_pipeline_image }}"
     source: pull
     state: present
   become: true
+  ignore_errors: true
+  register: docker_pull_result
+
+- name: Warn if Docker image pull failed
+  ansible.builtin.debug:
+    msg: "WARNING: Could not pre-pull {{ labeling_pipeline_image }} - pull manually after provisioning: docker pull {{ labeling_pipeline_image }}"
+  when: docker_pull_result is failed
