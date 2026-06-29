@@ -134,6 +134,26 @@
     update_cache: false
   become: true
 
+# HashiCorp Repository (Boundary, Vault CLI, etc.)
+- name: Download HashiCorp GPG key
+  ansible.builtin.get_url:
+    url: "{{ apt_repositories.hashicorp.key_url }}"
+    dest: /tmp/hashicorp.asc
+  become: true
+
+- name: Convert HashiCorp key to GPG format
+  ansible.builtin.shell:
+    cmd: "gpg --dearmor -o {{ apt_repositories.hashicorp.key_file }} < /tmp/hashicorp.asc"
+    creates: "{{ apt_repositories.hashicorp.key_file }}"
+  become: true
+
+- name: Add HashiCorp repository
+  ansible.builtin.apt_repository:
+    repo: "{{ apt_repositories.hashicorp.repo }}"
+    state: present
+    update_cache: false
+  become: true
+
 - name: Update APT cache after adding all repositories
   ansible.builtin.apt:
     update_cache: true

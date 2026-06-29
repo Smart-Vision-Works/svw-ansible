@@ -2,16 +2,14 @@
 # NVIDIA Drivers and CUDA Setup
 - name: Check kernel version compatibility
   ansible.builtin.debug:
-    msg: "Kernel {{ ansible_kernel }} detected. Driver {{ nvidia_driver_version }} requires kernel >= 6.14 for version 570+"
-  when: ansible_kernel is version('6.14', '>=') and nvidia_driver_version is version('570', '<')
-  
-- name: Warn if kernel/driver mismatch detected
+    msg: "Kernel {{ ansible_kernel }} detected. Driver {{ nvidia_driver_version }} — kernel 6.14+ requires driver 570 or newer."
+
+- name: Fail if kernel/driver mismatch detected
   ansible.builtin.fail:
-    msg: "CRITICAL: Kernel {{ ansible_kernel }} requires NVIDIA driver 570 or newer. Current config: {{ nvidia_driver_version }}"
-  when: 
+    msg: "CRITICAL: Kernel {{ ansible_kernel }} requires NVIDIA driver 570 or newer. Current config targets: {{ nvidia_driver_version }}"
+  when:
     - ansible_kernel is version('6.14', '>=')
-    - nvidia_driver_version is version('570', '<')
-  ignore_errors: false
+    - nvidia_driver_version | int < 570
 
 - name: Download NVIDIA driver installer (optional/backup)
   ansible.builtin.get_url:
@@ -21,15 +19,22 @@
   become: true
   when: false  # Disabled - using apt packages instead
 
-- name: Purge ALL old NVIDIA driver packages before installing new ones
+- name: Force-purge ALL NVIDIA packages (handles broken/unconfigured dpkg states)
   ansible.builtin.shell:
     cmd: |
-      # Purge all NVIDIA driver packages (any version)
-      apt-get purge -y 'nvidia-driver-*' 'nvidia-utils-*' 'nvidia-kernel-common-*' \
-                       'cuda-drivers-*' 'libnvidia-*' 'nvidia-dkms-*' || true
-      # Clean up residual config files
-      apt-get autoremove -y || true
-      apt-get autoclean -y || true
+      # Use dpkg directly to force-remove nvidia packages regardless of broken/iU state
+      # Keep full package:arch names (e.g. libnvidia-gl-570:i386) so i386 packages get removed too
+      dpkg -l | awk '/nvidia|libnvidia|cuda-drivers/ && /^(ii|iU|rc|iF)/ {print $2}' \
+        | sort -u \
+        | xargs -r dpkg -P --force-all 2>/dev/null || true
+      # Also explicitly purge known conflicting meta-packages by exact name
+      for pkg in cuda-drivers-branch nvidia-dkms-kernel; do
+        dpkg -P --force-all "$pkg" 2>/dev/null || true
+      done
+      dpkg --configure -a || true
+      DEBIAN_FRONTEND=noninteractive apt --fix-broken install -y || true
+      DEBIAN_FRONTEND=noninteractive apt-get autoremove -y || true
+      DEBIAN_FRONTEND=noninteractive apt-get autoclean -y || true
   become: true
   changed_when: true
   ignore_errors: true
@@ -39,15 +44,16 @@
   ansible.builtin.debug:
     msg: "Old NVIDIA packages purged - ready for driver {{ nvidia_driver_version }} installation"
 
-- name: Install NVIDIA CUDA drivers (let APT handle dependencies)
+- name: Install NVIDIA driver from Ubuntu repo and container toolkit
   ansible.builtin.apt:
     name:
-      - "cuda-drivers-{{ nvidia_cuda_version }}"
+      - "nvidia-driver-{{ nvidia_driver_version }}"
       - "nvidia-container-toolkit"
-      - "nvidia-docker2"
-    state: latest
-    update_cache: false  # Already updated in repository setup
+    state: present
+    update_cache: false
     allow_unauthenticated: false
+  environment:
+    DEBIAN_FRONTEND: noninteractive
   become: true
   notify: restart docker
   register: nvidia_install
@@ -96,6 +102,52 @@
     mode: '0644'
   become: true
   notify: restart docker
+
+- name: Enable nvidia-modprobe service (creates /dev/nvidia* device files at boot)
+  ansible.builtin.systemd:
+    name: nvidia-modprobe
+    enabled: true
+    daemon_reload: true
+  become: true
+  ignore_errors: true
+
+- name: Run nvidia-modprobe to create device files now
+  ansible.builtin.command:
+    cmd: nvidia-modprobe -u
+  become: true
+  ignore_errors: true
+  changed_when: true
+
+- name: Create nvidia-persistenced systemd override directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/nvidia-persistenced.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+
+- name: Override nvidia-persistenced to run as root (avoids privilege-drop permission issues)
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/nvidia-persistenced.service.d/override.conf
+    content: |
+      [Service]
+      ExecStart=
+      ExecStart=/usr/bin/nvidia-persistenced --verbose
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: reload systemd
+
+- name: Enable and start nvidia-persistenced
+  ansible.builtin.systemd:
+    name: nvidia-persistenced
+    state: started
+    enabled: true
+    daemon_reload: true
+  become: true
+  ignore_errors: true
 
 - name: Configure Docker to use NVIDIA Container Runtime with nvidia-ctk
   ansible.builtin.command:

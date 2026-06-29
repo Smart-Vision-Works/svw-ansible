@@ -1,17 +1,23 @@
 ---
-# Minimal APT Repository Setup - NVIDIA only (for focused NVIDIA driver updates)
+# Minimal APT Repository Setup - CTK only for driver updates
+#
+# We intentionally do NOT add the NVIDIA CUDA repo (developer.download.nvidia.com)
+# here. That repo ships its own versioned driver packages (e.g. 580.159.03-1ubuntu1)
+# which conflict with Ubuntu's driver packages (e.g. 580.142-0ubuntu0.24.04.1).
+# Ubuntu's repo provides a self-consistent nvidia-driver-580 package set; mixing
+# in CUDA repo driver packages causes unresolvable version mismatches.
+# The CUDA repo is only needed for CUDA development tools (nvcc, etc.), not for
+# running GPU containers.
 
-# Remove ALL old NVIDIA repository files first (including backups)
-- name: Remove all existing NVIDIA repository files and backups
+- name: Remove all existing NVIDIA/CUDA repository files
   ansible.builtin.shell:
     cmd: |
       rm -f /etc/apt/sources.list.d/*nvidia*.list*
       rm -f /etc/apt/sources.list.d/*cuda*.list*
       rm -f /etc/apt/sources.list.d/nvidia-*.list*
-      ls -la /etc/apt/sources.list.d/*nvidia* 2>/dev/null || echo "All NVIDIA repo files removed"
+      ls -la /etc/apt/sources.list.d/ | grep -i nvidia || echo "All NVIDIA/CUDA repo files removed"
   become: true
   changed_when: true
-  register: cleanup_nvidia_repos
 
 - name: Create keyrings directory
   ansible.builtin.file:
@@ -20,18 +26,12 @@
     mode: '0755'
   become: true
 
-# NVIDIA Container Toolkit Repository
+# NVIDIA Container Toolkit Repository (nvidia.github.io) - needed for nvidia-container-toolkit
 - name: Download NVIDIA Container Toolkit GPG key
-  ansible.builtin.get_url:
-    url: "{{ apt_repositories.nvidia_container_toolkit.key_url }}"
-    dest: /tmp/nvidia-container-toolkit.asc
-  become: true
-
-- name: Convert NVIDIA Container Toolkit key to GPG format
   ansible.builtin.shell:
-    cmd: "gpg --dearmor -o {{ apt_repositories.nvidia_container_toolkit.key_file }} < /tmp/nvidia-container-toolkit.asc"
-    creates: "{{ apt_repositories.nvidia_container_toolkit.key_file }}"
+    cmd: curl -fsSL {{ apt_repositories.nvidia_container_toolkit.key_url }} | gpg --batch --yes --no-tty --dearmor -o {{ apt_repositories.nvidia_container_toolkit.key_file }}
   become: true
+  changed_when: true
 
 - name: Add NVIDIA Container Toolkit repository
   ansible.builtin.apt_repository:
@@ -40,34 +40,13 @@
     update_cache: false
   become: true
 
-# NVIDIA CUDA Repository
-- name: Download NVIDIA CUDA GPG key
-  ansible.builtin.get_url:
-    url: "{{ apt_repositories.nvidia_cuda.key_url }}"
-    dest: /tmp/nvidia-cuda.asc
-  become: true
-
-- name: Convert NVIDIA CUDA key to GPG format
-  ansible.builtin.shell:
-    cmd: "gpg --dearmor -o {{ apt_repositories.nvidia_cuda.key_file }} < /tmp/nvidia-cuda.asc"
-    creates: "{{ apt_repositories.nvidia_cuda.key_file }}"
-  become: true
-
-- name: Add NVIDIA CUDA repository
-  ansible.builtin.apt_repository:
-    repo: "{{ apt_repositories.nvidia_cuda.repo }}"
-    state: present
-    update_cache: false
-  become: true
-
-- name: Update APT cache after adding NVIDIA repositories
+- name: Update APT cache
   ansible.builtin.apt:
     update_cache: true
   become: true
-  register: apt_update_result
-  failed_when: false  # Don't fail on warnings from other repos
+  failed_when: false
 
 - name: Display APT update result
   ansible.builtin.debug:
-    msg: "APT cache update completed (ignoring any warnings from non-NVIDIA repos)"
+    msg: "APT cache updated — using Ubuntu repo for nvidia-driver, CTK repo for nvidia-container-toolkit"
 

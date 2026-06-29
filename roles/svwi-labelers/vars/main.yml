@@ -67,6 +67,11 @@ apt_repositories:
     key_url: "https://dl.google.com/linux/linux_signing_key.pub"
     key_file: "/etc/apt/keyrings/google-chrome-stable.gpg"
 
+  hashicorp:
+    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/hashicorp.gpg] https://apt.releases.hashicorp.com noble main"
+    key_url: "https://apt.releases.hashicorp.com/gpg"
+    key_file: "/etc/apt/keyrings/hashicorp.gpg"
+
 # Download URLs
 downloads:
   mongodb_compass: "https://downloads.mongodb.com/compass/mongodb-compass_{{ mongodb_compass_version }}_amd64.deb"

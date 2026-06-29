@@ -1,9 +1,9 @@
 ---
 # NVIDIA Driver and CUDA Configuration
 # Note: Driver 570+ required for kernel 6.14.x compatibility
-# Driver 570.26+ supports CUDA 12.8 and is compatible with kernel 6.14
-nvidia_driver_version: "570"
-nvidia_cuda_version: "570"
+# Ubuntu 24.04 has moved to 580 as the managed driver (570 packages now depend on 580)
+nvidia_driver_version: "580"
+nvidia_cuda_version: "580"
 
 # AAD (Azure Active Directory) Configuration
 aad_tenant_id: "{{ vault.aad_tenant_id | default('') }}"
@@ -42,7 +42,7 @@ nfs_mounts:
     path: "/auto/ds"
     opts: "soft"
   - name: shared_ro
-    src: "10.8.7.246:/mnt/tank/shared"
+    src: "10.8.7.236:/mnt/tank/shared"
     path: "/auto/shared_ro"
     opts: "soft,intr"
   - name: ds_ro
