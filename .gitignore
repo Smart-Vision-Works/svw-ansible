@@ -19,6 +19,9 @@ server.cnf
 # Test files
 /.vagrant
 
+# AI
+/lancedb
+
 # Large binary files tracked outside git
 *.deb
 roles/svwi-vault/files/vault-plugin-secrets-*
