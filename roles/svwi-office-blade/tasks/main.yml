@@ -268,13 +268,13 @@
   tags:
     - registry-gc
 
-- name: Ensure cron job for Docker Registry GC runs every Monday at 2am
+- name: Ensure cron job for Docker Registry GC runs every Sunday at 2am
   ansible.builtin.cron:
     name: "docker-registry-gc"
     user: root
     minute: "0"
     hour: "2"
-    weekday: "1"
+    weekday: "0"
     job: "/opt/svw-docker-registry/docker-gc.sh"
   tags:
     - cron
