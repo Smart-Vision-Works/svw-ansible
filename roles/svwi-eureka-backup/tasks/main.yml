@@ -1,0 +1,117 @@
+---
+# tasks file for svwi-eureka-backup
+
+- name: Ensure hashicorp group exists
+  ansible.builtin.group:
+    name: hashicorp
+    state: present
+
+- name: Add HashiCorp GPG key
+  ansible.builtin.shell: >
+    curl -fsSL https://apt.releases.hashicorp.com/gpg |
+    gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+  args:
+    creates: /usr/share/keyrings/hashicorp-archive-keyring.gpg
+
+- name: Add HashiCorp apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com {{ ansible_distribution_release }} main"
+    filename: hashicorp
+    state: present
+    update_cache: true
+
+- name: Install Vault package
+  ansible.builtin.apt:
+    name: "{{ 'vault=' + eureka_backup_vault_client_version if eureka_backup_vault_client_version else 'vault' }}"
+    state: present
+
+- name: Install postgresql-client
+  ansible.builtin.apt:
+    name: postgresql-client
+    state: present
+
+- name: Ensure /etc/vault-agent.d exists
+  ansible.builtin.file:
+    path: /etc/vault-agent.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Place eureka-backup AppRole role_id
+  ansible.builtin.copy:
+    content: "{{ vault.eureka_backup_approle_role_id }}"
+    dest: /etc/vault-agent.d/eureka-backup-role-id
+    owner: root
+    group: root
+    mode: '0640'
+  notify: Restart eureka-backup vault agent
+
+- name: Place eureka-backup AppRole secret_id
+  ansible.builtin.copy:
+    content: "{{ vault.eureka_backup_approle_secret_id }}"
+    dest: /etc/vault-agent.d/eureka-backup-secret-id
+    owner: root
+    group: root
+    mode: '0640'
+  notify: Restart eureka-backup vault agent
+
+- name: Render eureka-backup vault agent config
+  ansible.builtin.template:
+    src: eureka-backup-vault-agent.hcl.j2
+    dest: /etc/vault-agent.d/eureka-backup-config.hcl
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart eureka-backup vault agent
+
+- name: Place eureka-backup vault agent systemd unit
+  ansible.builtin.template:
+    src: eureka-backup-vault-agent.service.j2
+    dest: /etc/systemd/system/eureka-backup-vault-agent.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart eureka-backup vault agent
+
+- name: Enable and start eureka-backup vault agent
+  ansible.builtin.systemd:
+    name: eureka-backup-vault-agent
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Ensure PostgreSQL backup directory exists
+  ansible.builtin.file:
+    path: "{{ eureka_backup_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Ensure backup log file exists
+  ansible.builtin.file:
+    path: "{{ eureka_backup_log_file }}"
+    state: touch
+    owner: root
+    group: root
+    mode: '0640'
+    modification_time: preserve
+    access_time: preserve
+
+- name: Render eureka backup script
+  ansible.builtin.template:
+    src: pg-backup.sh.j2
+    dest: /usr/local/bin/eureka-pg-backup.sh
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Schedule daily eureka postgres backup
+  ansible.builtin.cron:
+    name: eureka-postgres-backup
+    user: root
+    minute: "{{ eureka_backup_cron_minute }}"
+    hour: "{{ eureka_backup_cron_hour }}"
+    job: "/usr/local/bin/eureka-pg-backup.sh"
+    state: present

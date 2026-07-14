@@ -1,0 +1,94 @@
+#!/bin/bash
+# PostgreSQL database backup script for the eureka argus database
+# Intended to be run via root's crontab
+
+# Change to a safe directory to avoid permission issues
+cd /tmp
+
+# Set environment variables
+export VAULT_ADDR="{{ eureka_backup_vault_addr }}"
+export PGPASSWORD="{{ vault.argus.password }}"
+
+DB_HOST="{{ eureka_backup_db_host }}"
+DB_PORT="{{ eureka_backup_db_port }}"
+DB_USER="{{ vault.argus.username }}"
+DB_NAME="{{ vault.argus.database }}"
+
+# Create a timestamp for logging purposes
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+BACKUP_DIR="{{ eureka_backup_dir }}"
+BACKUP_FILE="${BACKUP_DIR}/argus_latest.sql.gz"
+GCP_BUCKET="{{ eureka_backup_gcp_bucket }}"
+
+# Ensure backup directory exists
+mkdir -p ${BACKUP_DIR}
+
+# Ensure log file exists
+LOG_FILE="{{ eureka_backup_log_file }}"
+touch ${LOG_FILE}
+
+# Log function
+log() {
+  echo "$(date): $1" | tee -a ${LOG_FILE}
+}
+
+log "Starting PostgreSQL backup for ${DB_NAME}"
+
+# Perform database dump and compress it
+log "Dumping ${DB_NAME} database..."
+pg_dump -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" | gzip > ${BACKUP_FILE}
+
+if [ $? -eq 0 ]; then
+  log "Database dump completed successfully."
+  log "Backup saved at: ${BACKUP_FILE}"
+  ls -lh ${BACKUP_FILE} | tee -a ${LOG_FILE}
+
+  # Check if we have access to a vault token for GCP
+  if [ -f "/run/eureka-backup/eureka-backup.token" ]; then
+    log "Found Vault token, attempting to upload to GCP bucket..."
+
+    # Read vault token (from AppRole agent) and get GCP token
+    VAULT_TOKEN=$(cat /run/eureka-backup/eureka-backup.token)
+    GCP_TOKEN=$(curl -s --header "X-Vault-Token: ${VAULT_TOKEN}" ${VAULT_ADDR}/v1/gcp/static-account/eureka-backup/token | jq -r .data.token)
+
+    if [ -n "${GCP_TOKEN}" ] && [ "${GCP_TOKEN}" != "null" ]; then
+      log "Retrieved GCP token, uploading to bucket..."
+
+      # Upload to GCP via a resumable session: the backup is too large for a
+      # simple media upload, which buffers the whole body in memory and OOMs curl.
+      SESSION_URI=$(curl -s -X POST \
+        -H "Authorization: Bearer ${GCP_TOKEN}" \
+        -H "Content-Type: application/json; charset=UTF-8" \
+        -d "{\"name\":\"argus_latest.sql.gz\"}" \
+        -D - -o /dev/null \
+        "https://storage.googleapis.com/upload/storage/v1/b/${GCP_BUCKET}/o?uploadType=resumable" | grep -i '^location:' | tr -d '\r' | awk '{print $2}')
+
+      curl -s -X PUT --upload-file ${BACKUP_FILE} \
+        -H "Content-Type: application/octet-stream" \
+        "${SESSION_URI}" > /tmp/eureka_gcp_upload_result.json
+
+      if grep -q "kind" /tmp/eureka_gcp_upload_result.json; then
+        log "Successfully uploaded backup to GCP bucket ${GCP_BUCKET}"
+
+        # After successful upload, keep local backups for just {{ eureka_backup_local_retention_days_with_upload }} days
+        find ${BACKUP_DIR} -name "argus_*.sql.gz" -type f -mtime +{{ eureka_backup_local_retention_days_with_upload }} -delete
+        log "Cleaned up old local backups (keeping {{ eureka_backup_local_retention_days_with_upload }} days of history)."
+      else
+        log "Error uploading to GCP: $(cat /tmp/eureka_gcp_upload_result.json)"
+        log "Keeping local backups for longer since upload failed."
+      fi
+    else
+      log "Could not retrieve GCP token from Vault, skipping upload."
+    fi
+  else
+    log "No Vault token found at /run/eureka-backup/eureka-backup.token, skipping GCP upload."
+
+    # Keep backups for longer ({{ eureka_backup_local_retention_days_without_upload }} days) if we cannot upload to GCP
+    find ${BACKUP_DIR} -name "argus_*.sql.gz" -type f -mtime +{{ eureka_backup_local_retention_days_without_upload }} -delete
+    log "Cleaned up old local backups (keeping {{ eureka_backup_local_retention_days_without_upload }} days of history)."
+  fi
+else
+  log "Error: Database dump failed."
+fi
+
+log "Backup process completed"

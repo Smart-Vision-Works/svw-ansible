@@ -1,0 +1,25 @@
+pid_file = "/run/eureka-backup/eureka-backup-vault-agent.pid"
+
+vault {
+  address = "{{ eureka_backup_vault_addr }}"
+}
+
+auto_auth {
+  method {
+    type = "approle"
+
+    config = {
+      role_id_file_path = "/etc/vault-agent.d/eureka-backup-role-id"
+      secret_id_file_path = "/etc/vault-agent.d/eureka-backup-secret-id"
+      remove_secret_id_file_after_reading = false
+    }
+  }
+
+  sink {
+    type = "file"
+    config = {
+      path = "/run/eureka-backup/eureka-backup.token"
+      mode = 0640
+    }
+  }
+}

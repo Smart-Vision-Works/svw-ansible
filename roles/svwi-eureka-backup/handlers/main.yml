@@ -1,0 +1,6 @@
+---
+- name: Restart eureka-backup vault agent
+  ansible.builtin.systemd:
+    name: eureka-backup-vault-agent
+    state: restarted
+    daemon_reload: true

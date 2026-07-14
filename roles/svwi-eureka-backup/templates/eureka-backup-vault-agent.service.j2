@@ -1,0 +1,16 @@
+[Unit]
+Description=Vault Agent for Eureka PostgreSQL Backup
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/bin/vault agent -config=/etc/vault-agent.d/eureka-backup-config.hcl
+Restart=on-failure
+RestartSec=5
+RuntimeDirectory=eureka-backup
+RuntimeDirectoryMode=0750
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,19 @@
+---
+# defaults file for svwi-eureka-backup
+
+eureka_backup_vault_addr: "https://vault.svwi.us:8200"
+eureka_backup_vault_client_version: ""
+
+eureka_backup_gcp_bucket: "{{ vault.eureka_backup_gcs_bucket }}"
+
+eureka_backup_db_host: "127.0.0.1"
+eureka_backup_db_port: 5432
+
+eureka_backup_dir: /var/backups/postgresql
+eureka_backup_log_file: /var/log/pg-backup.log
+
+eureka_backup_cron_minute: "0"
+eureka_backup_cron_hour: "3"
+
+eureka_backup_local_retention_days_with_upload: 7
+eureka_backup_local_retention_days_without_upload: 30

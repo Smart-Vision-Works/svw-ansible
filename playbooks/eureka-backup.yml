@@ -1,0 +1,14 @@
+---
+- name: Configure eureka PostgreSQL backup
+  hosts: eureka
+  become: true
+
+  tasks:
+    - name: Load vault variables
+      ansible.builtin.include_vars:
+        file: ../vault.yml
+        name: vault
+
+    - name: Include svwi-eureka-backup role
+      ansible.builtin.include_role:
+        name: svwi-eureka-backup
